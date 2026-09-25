@@ -79,3 +79,38 @@ def test_validators():
     assert luhn_ok("4111111111111111") and not luhn_ok("4111111111111112")
     assert iban_ok("DE89 3704 0044 0532 0130 00") and not iban_ok("DE89 3704 0044 0532 0130 01")
     assert looks_random("x9Kq2LmZ7vB4nR8tW1yP3sD6") and not looks_random("aaaaaaaaaaaaaaaaaaaaaaaa")
+
+
+# ---- regressions from a real chat screenshot (Teams): passwords with spaces, chat headers ----
+
+@pytest.mark.parametrize("text,value", [
+    ("password: hK3#9vLp jfn2n2mcnkc2", "hK3#9vLp jfn2n2mcnkc2"),
+    ("password: mypass jfn2n2mcnkc2", "mypass jfn2n2mcnkc2"),
+    ("Password = Summer2026!xQ7jfn2n2mcnkc2", "Summer2026!xQ7jfn2n2mcnkc2"),
+    ("password: hunter2 please", "hunter2"),
+    ("pwd: Tr0ub4dor&3 Thanks", "Tr0ub4dor&3"),
+])
+def test_secret_value_covers_whole_value(text, value):
+    s = next(x for x in find_spans(text) if x.label == "PASSWORD_OR_SECRET")
+    assert text[s.start:s.end] == value
+
+
+@pytest.mark.parametrize("text,name", [
+    ("Parag Sawant Yesterday 12:02 PM", "Parag Sawant"),
+    ("Parag Sawant 11:20 AM", "Parag Sawant"),
+    ("Nikhil KulkarniYesterday 12:02 PM", "Nikhil Kulkarni"),  # OCR dropped the space
+    ("Olumide Adeyemi (External) Mon 9:05", "Olumide Adeyemi"),
+    ("Maria de la Cruz Sep 24, 2026, 3:41 PM", "Maria de la Cruz"),
+    ("thanks @Wei Zhang for the fix", "Wei Zhang"),
+    ("Hi Aarav, can you check this?", "Aarav"),
+    ("From: Siddharth Rao", "Siddharth Rao"),
+])
+def test_person_rules(text, name):
+    assert name in [text[s.start:s.end] for s in find_spans(text, ["person"])]
+
+
+@pytest.mark.parametrize("text", ["Daily Standup 9:30 AM", "Updated 3:45 PM", "Yesterday 12:15 PM", "Last read",
+                                  "Hi Team, quick update", "Sprint Planning Mon 10:00", "Shift+Enter starts a new line."])
+def test_no_person_false_positive(text):
+    assert find_spans(text, ["person"]) == []
+

@@ -14,6 +14,8 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Callable, Iterable
 
+import regex as uregex
+
 from .types import TextSpan
 
 Validator = Callable[[str], bool]
@@ -174,6 +176,66 @@ RULES: list[Rule] = [
 
 _TOKEN = re.compile(r"[A-Za-z0-9+/_\-]{20,}={0,2}")
 
+# ---------------------------------------------------------------- people (chat UIs)
+# Unicode letter classes need the `regex` module (stdlib `re` has no \p{Lu}).
+_NOT_TIME_WORD = (
+    r"(?!(?:Yesterday|Today|Tomorrow|Now|Just|Edited|Sent|Seen|Read|Delivered|"
+    r"Mon|Tue|Wed|Thu|Fri|Sat|Sun|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|"
+    r"Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|January|February|March|April|June|July|"
+    r"August|September|October|November|December|"
+    r"Meeting|Standup|Sync|Call|Review|Lunch|Updated|Posted|Created|Modified|Last|Due|Starts?|Ends?|"
+    r"Daily|Weekly|Monthly|Team|Project|Sprint|Reminder|Event|Deadline|Break|Demo|Office|Hours|"
+    r"Planning|Retro|All)\b)"
+)
+_GLUE = (r"(?:Yesterday|Today|Tomorrow|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|"
+         r"Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b")  # time words OCR sometimes glues onto a name
+_NAME_WORD = _NOT_TIME_WORD + rf"\p{{Lu}}(?:(?!{_GLUE})[\p{{L}}\p{{M}}'’.\-])*"
+_PARTICLE = r"(?:(?:de|da|di|du|van|von|der|den|del|la|le|bin|binti|al|el|ibn)\s+){0,2}"
+_NAME = rf"{_NAME_WORD}(?:\s+{_PARTICLE}{_NAME_WORD}){{0,3}}"
+_FULL_NAME = rf"{_NAME_WORD}(?:\s+{_PARTICLE}{_NAME_WORD}){{1,3}}"
+TIMESTAMP = (
+    r"(?:(?:Yesterday|Today|Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|"
+    r"Sat(?:urday)?|Sun(?:day)?|\d{1,2}/\d{1,2}(?:/\d{2,4})?|"
+    r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.? \d{1,2}(?:,? \d{4})?),?\s+)?"
+    r"\d{1,2}:\d{2}(?:\s?[AaPp]\.?[Mm]\.?)?"
+)
+_NOT_GENERIC = r"(?!(?:Team|All|Everyone|There|Folks|Guys|Friends|Sir|Madam|Support|Admin|Hi|Hello)\b)"
+
+# (label, pattern with the name in group 1); matched with `regex`, after the rules above.
+PERSON_RULES = [
+    uregex.compile(rf"^\s*({_FULL_NAME})(?:\s*\([^)]{{1,40}}\))?(?:\s+|(?={_GLUE})){TIMESTAMP}\s*$"),  # chat header
+    uregex.compile(rf"(?<![\w.])@({_NAME})"),  # @mention
+    uregex.compile(rf"\b(?:Hi|Hello|Hey|Dear|Thanks|Thank you|Cheers|Regards|Best),?\s+{_NOT_GENERIC}"
+                   rf"({_NAME_WORD}(?:\s+{_NAME_WORD})?)"),
+    uregex.compile(rf"\b(?:From|To|Cc|Bcc|Sender|Recipient|Name|Full name|Owner|Assignee|Author|Contact|"
+                   rf"Signed by)\s*:\s*{_NOT_GENERIC}({_NAME})"),
+]
+
+#: An OCR box that is only a secret label; its value is in the next box on the row (form fields).
+SECRET_LABEL_ONLY = re.compile(
+    r"(?:^|\s)(?:pass(?:word|wd|code|phrase)?|pwd|secret|token|api[ _-]?key|access[ _-]?key|"
+    r"private[ _-]?key|client[ _-]?secret|pin|otp)\s*[:=]?\s*$", _I)
+
+
+def secret_like_chunk(chunk: str) -> bool:
+    """Does a space-separated chunk look like more of a secret rather than an ordinary word?"""
+    if len(chunk) < 3:
+        return False
+    if any(c.isdigit() for c in chunk) or not all(c.isalpha() for c in chunk):
+        return True
+    has_lower, has_upper = any(c.islower() for c in chunk), any(c.isupper() for c in chunk)
+    return has_lower and has_upper and not (chunk[0].isupper() and chunk[1:].islower())
+
+
+def extend_secret(text: str, end: int, max_chunks: int = 4) -> int:
+    """Passwords can contain spaces (and OCR sometimes inserts one): keep covering secret-like chunks."""
+    for _ in range(max_chunks):
+        m = re.match(r" {1,2}([^\s\"',;]+)", text[end:])
+        if not m or not secret_like_chunk(m.group(1)):
+            break
+        end += m.end()
+    return end
+
 
 def find_spans(text: str, categories: Iterable[str] | None = None,
                custom_terms: Iterable[str] = ()) -> list[TextSpan]:
@@ -198,7 +260,14 @@ def find_spans(text: str, categories: Iterable[str] | None = None,
             value = m.group(rule.group)
             if not value or (rule.validator and not rule.validator(value)):
                 continue
-            add(TextSpan(m.start(rule.group), m.end(rule.group), rule.label, rule.category), prio)
+            end = m.end(rule.group)
+            if rule.label == "PASSWORD_OR_SECRET":
+                end = extend_secret(text, end)
+            add(TextSpan(m.start(rule.group), end, rule.label, rule.category), prio)
+
+    for pattern in PERSON_RULES:
+        for m in pattern.finditer(text):
+            add(TextSpan(m.start(1), m.end(1), "PERSON", "person"), len(RULES))
 
     for m in _TOKEN.finditer(text):
         if looks_random(m.group()):

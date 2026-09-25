@@ -112,7 +112,9 @@ const NOT_TIME_WORD = String.raw`(?!(?:Yesterday|Today|Tomorrow|Now|Just|Edited|
   String.raw`Mon|Tue|Wed|Thu|Fri|Sat|Sun|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|` +
   String.raw`Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|January|February|March|April|June|July|August|September|October|November|December|` +
   String.raw`Meeting|Standup|Sync|Call|Review|Lunch|Updated|Posted|Created|Modified|Last|Due|Starts?|Ends?|Daily|Weekly|Monthly|Team|Project|Sprint|Reminder|Event|Deadline|Break|Demo|Office|Hours|Planning|Retro|All)\b)`;
-const NAME_WORD = NOT_TIME_WORD + String.raw`\p{Lu}[\p{L}\p{M}'’.\-]*`;
+// Time words OCR sometimes glues onto a name ("KulkarniYesterday"); a name word stops before them.
+const GLUE = String.raw`(?:Yesterday|Today|Tomorrow|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b`;
+const NAME_WORD = NOT_TIME_WORD + String.raw`\p{Lu}(?:(?!${GLUE})[\p{L}\p{M}'’.\-])*`;
 const PARTICLE = String.raw`(?:(?:de|da|di|du|van|von|der|den|del|la|le|bin|binti|al|el|ibn)\s+){0,2}`;
 const NAME = `${NAME_WORD}(?:\\s+${PARTICLE}${NAME_WORD}){0,3}`;
 const FULL_NAME = `${NAME_WORD}(?:\\s+${PARTICLE}${NAME_WORD}){1,3}`;
@@ -167,7 +169,7 @@ export const RULES = [
   rule("PHONE", "contact", String.raw`\+\d{1,3}[\s.-]?\(?\d{1,4}\)?(?:[\s.-]?\d{2,4}){2,4}\b`, 0, phoneOk),
   rule("PHONE", "contact", String.raw`(?:\(\d{3}\)\s?|\b\d{3}[\s.-])\d{3}[\s.-]\d{4}\b`, 0, phoneOk),
   // people: chat headers ("Parag Sawant  Yesterday 12:02 PM"), @mentions, greetings, "From: …" labels
-  rule("PERSON", "person", String.raw`^\s*(${FULL_NAME})(?:\s*\([^)]{1,40}\))?\s+${TIMESTAMP}\s*$`, 1, null, "u"),
+  rule("PERSON", "person", String.raw`^\s*(${FULL_NAME})(?:\s*\([^)]{1,40}\))?(?:\s+|(?=${GLUE}))${TIMESTAMP}\s*$`, 1, null, "u"),
   rule("PERSON", "person", String.raw`(?<![\w.])@(${NAME})`, 1, null, "u"),
   rule("PERSON", "person",
     String.raw`\b(?:Hi|Hello|Hey|Dear|Thanks|Thank you|Cheers|Regards|Best),?\s+${NOT_GENERIC}(${NAME_WORD}(?:\s+${NAME_WORD})?)`,

@@ -35,6 +35,7 @@ page.on("pageerror", (e) => problems.push(`pageerror: ${e.message}`));
 const t0 = Date.now();
 await page.goto(base);
 await page.locator("#engine[data-kind=ok]").waitFor({ timeout: 180_000 });
+assert.ok(await page.locator("img.logo").evaluate((i) => i.complete && i.naturalWidth > 0), "header logo should load");
 console.log(`engine ready in ${((Date.now() - t0) / 1000).toFixed(1)}s | crossOriginIsolated=${await page.evaluate(() => crossOriginIsolated)}`);
 
 async function scanExample(name, expected) {

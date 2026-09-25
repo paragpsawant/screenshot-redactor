@@ -10,6 +10,8 @@ import logging
 import os
 import threading
 
+import regex
+
 from .layout import OCRLine
 from .types import TextSpan
 
@@ -74,9 +76,29 @@ def find_entities(lines: list[OCRLine], categories: set[str], threshold: float =
                 line_end = line_start + len(lines[idx].text)
                 s, e = max(ent["start"], line_start), min(ent["end"], line_end)
                 if e > s and lines[idx].text[s - line_start:e - line_start].strip():
-                    out.setdefault(idx, []).append(
-                        TextSpan(s - line_start, e - line_start, label, cat, float(ent["score"]), "ner"))
+                    ls, le = clean_span(lines[idx].text, s - line_start, e - line_start, cat)
+                    if le > ls:
+                        out.setdefault(idx, []).append(TextSpan(ls, le, label, cat, float(ent["score"]), "ner"))
     return out
+
+
+_WORD = regex.compile(r"[\p{L}\p{M}\p{N}'’\-]")
+
+
+def clean_span(text: str, start: int, end: int, category: str) -> tuple[int, int]:
+    """Never start/end mid-word; for people, drop lowercase words at the edges ("ping Priya" -> "Priya")."""
+    while start > 0 and _WORD.match(text[start - 1]) and _WORD.match(text[start]):
+        start -= 1
+    while end < len(text) and _WORD.match(text[end]) and _WORD.match(text[end - 1]):
+        end += 1
+    if category == "person":
+        words = [(m.start(), m.end()) for m in regex.finditer(r"\S+", text[start:end])]
+        named = [(s, e) for s, e in words if regex.match(r"\p{Lu}|\p{Lo}", text[start + s])]
+        if named:
+            start, end = start + named[0][0], start + named[-1][1]
+    while end > start and text[end - 1] in " ,.;:":
+        end -= 1
+    return start, end
 
 
 def _chunks(lines: list[OCRLine], max_chars: int) -> list[list[int]]:

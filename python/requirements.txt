@@ -6,4 +6,5 @@ opencv-python-headless==5.0.0.93
 pillow>=11
 numpy>=2
 gliner==0.2.29
+regex>=2024.1
 torch==2.14.0

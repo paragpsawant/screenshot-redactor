@@ -1,5 +1,9 @@
 # 🕶️ Screenshot Redactor
 
+<p align="center">
+  <img src="web/assets/icon.svg" width="128" height="128" alt="Screenshot Redactor logo">
+</p>
+
 [![CI](https://github.com/paragpsawant/screenshot-redactor/actions/workflows/ci.yml/badge.svg)](https://github.com/paragpsawant/screenshot-redactor/actions/workflows/ci.yml)
 [![Live demo on Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Live%20demo-Hugging%20Face%20Space-yellow)](https://huggingface.co/spaces/screenshot-redactor/app)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)

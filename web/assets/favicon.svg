@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#312e81"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="scan" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a5b4fc"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+  </defs>
+  <!-- Simplified for 16-32px: no window dots, thicker shapes. -->
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <rect x="11" y="13" width="42" height="38" rx="5" fill="#f8fafc"/>
+  <rect x="16" y="19" width="22" height="5" rx="2.5" fill="#94a3b8"/>
+  <rect x="16" y="42" width="16" height="5" rx="2.5" fill="#94a3b8"/>
+  <rect x="13" y="27" width="38" height="12" rx="3" fill="url(#scan)"/>
+  <rect x="15" y="29" width="34" height="8" rx="2" fill="#0b1020"/>
+</svg>

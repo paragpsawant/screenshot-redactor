@@ -1,0 +1,15 @@
+{
+  "name": "Screenshot Redactor",
+  "short_name": "Redactor",
+  "description": "Hide API keys, passwords, names, faces and QR codes in screenshots. Runs entirely in your browser.",
+  "start_url": "../",
+  "scope": "../",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#1e1b4b",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

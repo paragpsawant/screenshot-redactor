@@ -8,6 +8,7 @@ app_file: index.html
 pinned: false
 license: apache-2.0
 short_description: Hide API keys, PII, faces & QR codes in screenshots
+thumbnail: https://huggingface.co/spaces/screenshot-redactor/app/resolve/main/assets/social-preview.png
 tags:
   - privacy
   - redaction
@@ -18,6 +19,8 @@ tags:
 ---
 
 # 🕶️ Screenshot Redactor
+
+<p align="center"><img src="assets/icon.svg" width="112" height="112" alt="Screenshot Redactor logo"></p>
 
 **Hide secrets and personal info before you share a screenshot. Runs 100% in your browser.**
 

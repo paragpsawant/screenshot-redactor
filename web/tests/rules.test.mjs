@@ -108,6 +108,7 @@ for (const [text, value] of SECRET_VALUES) {
 const PEOPLE = [
   ["Parag Sawant Yesterday 12:02 PM", "Parag Sawant"],
   ["Parag Sawant 11:20 AM", "Parag Sawant"],
+  ["Nikhil KulkarniYesterday 12:02 PM", "Nikhil Kulkarni"], // OCR dropped the space
   ["Olumide Adeyemi (External) Mon 9:05", "Olumide Adeyemi"],
   ["Maria de la Cruz Sep 24, 2026, 3:41 PM", "Maria de la Cruz"],
   ["thanks @Wei Zhang for the fix", "Wei Zhang"],
@@ -126,3 +127,4 @@ const NOT_PEOPLE = ["Daily Standup 9:30 AM", "Updated 3:45 PM", "Yesterday 12:15
 for (const text of NOT_PEOPLE) {
   test(`no person false positive: ${text}`, () => assert.deepEqual(findSpans(text, ["person"]), []));
 }
+

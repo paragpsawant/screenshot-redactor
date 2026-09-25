@@ -60,3 +60,53 @@ def test_rgba_and_gray_inputs():
     rgba[..., 3] = 0
     assert to_rgb_array(rgba).shape == (10, 10, 3) and to_rgb_array(rgba).min() == 255
     assert to_rgb_array(np.zeros((10, 10), np.uint8)).shape == (10, 10, 3)
+
+
+# ---- regressions from a real chat screenshot (synthetic fixture shared with the web app) ----
+
+from redactor.layout import OCRLine as _Line, group_rows, labelled_values, rect_polygon, row_span_polygon  # noqa: E402
+from redactor.ner import clean_span  # noqa: E402
+from redactor.rules import SECRET_LABEL_ONLY  # noqa: E402
+from redactor.visual import tile_starts  # noqa: E402
+
+CHAT = Path(__file__).resolve().parents[2] / "web" / "tests" / "fixtures" / "chat.png"
+
+
+def _l(text, x0, x1, y0=100, y1=124):
+    return _Line(text, rect_polygon(x0, y0, x1, y1))
+
+
+@pytest.mark.skipif(not CHAT.exists(), reason="web fixture not available")
+def test_chat_screenshot_headers_and_full_passwords():
+    from PIL import Image
+
+    result = scan(to_rgb_array(Image.open(CHAT)), use_ner=USE_NER)
+    texts = [d.text for d in result.detections]
+    for t in ["hK3#9vLp jfn2n2mcnkc2", "hunter2"]:
+        assert t in texts, texts
+    assert texts.count("Nikhil Kulkarni") == 2, texts
+    for t in ["Daily Standup", "Contoso Ltd", "please"]:
+        assert not any(t in x for x in texts), texts
+
+
+def test_group_rows_and_split_label_value():
+    rows = group_rows([_l("ant Yesterday 12:02 PM", 352, 534), _l("Parag", 270, 321), _l("far away", 1200, 1300)])
+    assert [r.text for r in rows] == ["Parag ant Yesterday 12:02 PM", "far away"]
+    xs = [p[0] for p in row_span_polygon(rows[0], 0, 9)]
+    assert min(xs) <= 270 and max(xs) >= 352
+    lines = [_l("password:", 287, 386), _l("jfn2n2mcnkc2", 501, 630), _l("Shift+Enter starts a new line.", 1336, 1553, 150, 170)]
+    assert [v.text for v in labelled_values(lines, SECRET_LABEL_ONLY)] == ["jfn2n2mcnkc2"]
+
+
+def test_ner_span_cleanup():
+    t = "Parag Sawant Yesterday"
+    assert clean_span(t, 6, 9, "person") == (6, 12)
+    u = "ping Priya Raman or"
+    s, e = clean_span(u, 0, 16, "person")
+    assert u[s:e] == "Priya Raman"
+
+
+def test_face_tiles_cover_image():
+    assert tile_starts(500, 640, 512) == [0]
+    starts = tile_starts(1604, 640, 512)
+    assert starts[0] == 0 and starts[-1] + 640 == 1604

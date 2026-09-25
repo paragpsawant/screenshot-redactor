@@ -9,7 +9,8 @@ const port = Number(process.env.PORT || 8080);
 const types = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css",
   ".json": "application/json", ".wasm": "application/wasm", ".onnx": "application/octet-stream",
-  ".png": "image/png", ".txt": "text/plain; charset=utf-8",
+  ".png": "image/png", ".txt": "text/plain; charset=utf-8", ".svg": "image/svg+xml", ".ico": "image/x-icon",
+  ".webmanifest": "application/manifest+json",
 };
 const blocked = /^[\\/](node_modules|\.cache|tests|scripts)([\\/]|$)/;
 

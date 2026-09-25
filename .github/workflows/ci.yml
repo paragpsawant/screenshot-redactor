@@ -76,5 +76,6 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install test dependencies (the optional GLiNER/torch model is not needed for tests)
-        run: pip install rapidocr==3.9.2 onnxruntime==1.30.0 opencv-python-headless==5.0.0.93 "pillow>=11" "numpy>=2" pytest
+        run: pip install rapidocr==3.9.2 onnxruntime==1.30.0 opencv-python-headless==5.0.0.93 "pillow>=11" "numpy>=2" "regex>=2024.1" pytest
       - run: pytest -q
+

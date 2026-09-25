@@ -209,4 +209,5 @@ if __name__ == "__main__":
         mcp_server=True,
         theme=gr.themes.Soft(primary_hue="slate"),
         footer_links=["api"],
+        favicon_path=str(ROOT / "assets" / "favicon.png"),
     )

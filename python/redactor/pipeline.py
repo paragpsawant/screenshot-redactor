@@ -9,13 +9,21 @@ from typing import Iterable
 import numpy as np
 
 from . import ner, rules
-from .layout import OCRLine, span_polygon
+from .layout import OCRLine, group_rows, labelled_values, row_span_polygon, span_polygon
 from .redact import apply_redactions
 from .types import DEFAULT_CATEGORIES, Detection, TextSpan
 
 TEXT_CATEGORIES = {"secrets", "contact", "financial", "government_id", "network",
                    "person", "location", "dates", "custom"}
 NER_CATEGORIES = {"person", "location", "dates", "government_id", "financial", "contact"}
+
+
+def _overlap(a, b) -> bool:
+    ax0, ay0 = min(p[0] for p in a), min(p[1] for p in a)
+    ax1, ay1 = max(p[0] for p in a), max(p[1] for p in a)
+    bx0, by0 = min(p[0] for p in b), min(p[1] for p in b)
+    bx1, by1 = max(p[0] for p in b), max(p[1] for p in b)
+    return min(ax1, bx1) > max(ax0, bx0) and min(ay1, by1) > max(ay0, by0)
 
 
 @dataclass
@@ -63,18 +71,26 @@ def scan(image: np.ndarray, categories: Iterable[str] = DEFAULT_CATEGORIES,
         timings["ocr"] = time.perf_counter() - t
 
         t = time.perf_counter()
+        rows = group_rows(lines)
+        row_lines = [OCRLine(r.text, r.parts[0][0].polygon) for r in rows]  # NER only reads .text
         ner_spans: dict[int, list[TextSpan]] = {}
         ner_used = False
         if use_ner and cats & NER_CATEGORIES:
-            ner_spans = ner.find_entities(lines, cats & NER_CATEGORIES, threshold=ner_threshold)
+            ner_spans = ner.find_entities(row_lines, cats & NER_CATEGORIES, threshold=ner_threshold)
             ner_used = ner.available()
         timings["ner"] = time.perf_counter() - t
 
-        for idx, line in enumerate(lines):
-            spans = _merge_line_spans(rules.find_spans(line.text, cats, terms), ner_spans.get(idx, []))
+        for idx, row in enumerate(rows):
+            spans = _merge_line_spans(rules.find_spans(row.text, cats, terms), ner_spans.get(idx, []))
             for s in spans:
-                add(category=s.category, label=s.label, polygon=span_polygon(line, s.start, s.end),
-                    score=s.score, source=s.source, text=line.text[s.start:s.end])
+                add(category=s.category, label=s.label, polygon=row_span_polygon(row, s.start, s.end),
+                    score=s.score, source=s.source, text=row.text[s.start:s.end])
+
+        if "secrets" in cats:
+            for line in labelled_values(lines, rules.SECRET_LABEL_ONLY):
+                if not any(_overlap(d.polygon, line.polygon) for d in detections):
+                    add(category="secrets", label="PASSWORD_OR_SECRET", score=0.9, source="rule",
+                        polygon=span_polygon(line, 0, len(line.text)), text=line.text)
     else:
         lines, ner_used = [], False
 

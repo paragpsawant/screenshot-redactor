@@ -30,8 +30,7 @@ kbd { font: 12px ui-monospace, monospace; border: 1px solid var(--line); border-
 .top { max-width: 1400px; width: 100%; margin: 0 auto; padding: 18px 20px; display: flex; gap: 16px;
   justify-content: space-between; align-items: center; flex-wrap: wrap; }
 .brand { display: flex; gap: 12px; align-items: center; }
-.logo { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: var(--accent);
-  color: var(--accent-text); font-size: 12px; letter-spacing: -2px; }
+.logo { width: 40px; height: 40px; flex: none; display: block; }
 .tag { margin: 0; color: var(--muted); font-size: 14px; }
 .privacy { margin: 0; font-size: 13px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); }
 
