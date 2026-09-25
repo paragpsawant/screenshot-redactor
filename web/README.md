@@ -25,8 +25,11 @@ Paste a screenshot (Ctrl+V), drop it in, or pick a file. It finds and covers API
 emails, phone numbers, card numbers, SSNs, IPs, names, addresses, faces and QR codes. Review every
 box, untick false positives, **drag to hide anything that was missed**, then download or copy a clean PNG.
 
-- 🔒 **Nothing is uploaded.** All AI models run on your device via WebAssembly. The page's
-  Content-Security-Policy blocks requests to any other server, so this is enforced, not promised.
+- 🔒 **Nothing is uploaded.** All AI models run on your device via WebAssembly. The app only
+  downloads its own code and models from this Space (Hugging Face serves the large model files from
+  its CDN) and never sends a request with data in it. A Content-Security-Policy stops the page from
+  loading anything from other sites, and the test suite checks in a real browser that no upload
+  or third-party request ever happens.
 - 📴 **Works offline** after the first load (~50 MB of models, cached by your browser).
 - 🧹 **No metadata.** The PNG is re-encoded from pixels, so EXIF/GPS data is dropped.
 

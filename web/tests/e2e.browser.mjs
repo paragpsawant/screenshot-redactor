@@ -15,10 +15,15 @@ const browser = await chromium.launch({ channel, headless: process.env.HEADED ? 
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 const external = [];
 const problems = [];
+const nonGet = [];
 const baseHost = new URL(base).host;
+// Hugging Face serves a Space's large (LFS) files by redirecting to its own CDN; that is still this Space's files.
+const allowedHost = (h) => h === baseHost || /^cdn-lfs[\w-]*\.hf\.co$/.test(h);
 page.on("request", (r) => {
   const u = new URL(r.url());
-  if (!["blob:", "data:"].includes(u.protocol) && u.host !== baseHost) external.push(r.url());
+  if (["blob:", "data:"].includes(u.protocol)) return;
+  if (r.method() !== "GET" || r.postData()) nonGet.push(`${r.method()} ${r.url()}`);
+  if (!allowedHost(u.host)) external.push(r.url());
 });
 page.on("console", (m) => ["error", "warning"].includes(m.type()) && problems.push(`${m.type()}: ${m.text().slice(0, 200)}`));
 page.on("pageerror", (e) => problems.push(`pageerror: ${e.message}`));
@@ -81,8 +86,10 @@ assert.ok(!png.includes(Buffer.from("eXIf")) && !png.includes(Buffer.from("tEXt"
 await download.delete();
 
 console.log(`\nexternal requests: ${external.length ? external.join(", ") : "none"}`);
+console.log(`uploads / non-GET requests: ${nonGet.length ? nonGet.join(", ") : "none"}`);
 if (problems.length) console.log("console:\n  " + problems.slice(0, 20).join("\n  "));
 assert.deepEqual(external, [], "the page must not contact other hosts");
+assert.deepEqual(nonGet, [], "the page must never send data anywhere");
 await Promise.race([browser.close(), new Promise((r) => setTimeout(r, 5000))]);
 console.log("\nE2E OK");
 process.exit(0);
