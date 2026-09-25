@@ -8,11 +8,11 @@ import { fileURLToPath } from "node:url";
 import * as ort from "onnxruntime-node";
 import * as transformers from "@huggingface/transformers";
 
-import { DEFAULT_CATEGORIES } from "../js/rules.js";
-import { FaceDetector } from "../js/faces.js";
-import { alignTokens, createNer, extendAddress, groupEntities } from "../js/ner.js";
+import { DEFAULT_CATEGORIES, SECRET_LABEL_ONLY } from "../js/rules.js";
+import { FaceDetector, tileStarts } from "../js/faces.js";
+import { alignTokens, coordinatedNames, createNer, extendAddress, groupEntities, looksLikePersonInContext, toWordBoundaries, trimToNameWords } from "../js/ner.js";
 import { OCR } from "../js/ocr.js";
-import { scan, spanBox } from "../js/pipeline.js";
+import { groupRows, labelledValues, rowSpanBox, scan, spanBox } from "../js/pipeline.js";
 import { readPng } from "./png.mjs";
 
 const web = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -104,3 +104,52 @@ test("spanBox pads inside the line and reaches the edges at line ends", () => {
   const all = spanBox(line, 0, 4);
   assert.ok(all.x0 <= 0 && all.x1 >= 100);
 });
+
+// ---- regressions from a real chat screenshot (synthetic fixture: tests/fixtures/chat.png) ----
+
+test("chat screenshot: sender headers, inline names and full passwords are covered", async () => {
+  const { detections } = await scan(readPng(join(web, "tests", "fixtures", "chat.png")), engines, { categories: DEFAULT_CATEGORIES });
+  const texts = detections.map((d) => d.text);
+  for (const t of ["Nikhil Kulkarni", "Aarav", "Priya Raman", "Mei-Ling", "Kwame", "hK3#9vLp jfn2n2mcnkc2", "hunter2"]) {
+    assert.ok(texts.includes(t), `missing ${t}; got ${JSON.stringify(texts)}`);
+  }
+  assert.equal(texts.filter((t) => t === "Nikhil Kulkarni").length, 2);
+  for (const t of ["Daily Standup", "Contoso Ltd", "please", "Meeting"]) {
+    assert.ok(!texts.some((x) => x.includes(t)), `false positive on ${t}`);
+  }
+});
+
+const L = (text, x0, x1, y0 = 100, y1 = 124) => ({ text, box: { x0, y0, x1, y1 }, bounds: [] });
+
+test("groupRows joins nearby boxes on the same row, keeps distant ones apart", () => {
+  const rows = groupRows([L("ant Yesterday 12:02 PM", 352, 534), L("Parag", 270, 321), L("far away", 1200, 1300)]);
+  assert.deepEqual(rows.map((r) => r.text), ["Parag ant Yesterday 12:02 PM", "far away"]);
+  const box = rowSpanBox(rows[0], 0, 9); // "Parag ant" spans two OCR boxes
+  assert.ok(box.x0 <= 270 && box.x1 >= 352);
+});
+
+test("a label-only box takes the next box on the row as its secret value", () => {
+  const lines = [L("password:", 287, 386), L("jfn2n2mcnkc2", 501, 630), L("Shift+Enter starts a new line.", 1336, 1553, 150, 170)];
+  assert.deepEqual(labelledValues(lines, SECRET_LABEL_ONLY).map((v) => v.line.text), ["jfn2n2mcnkc2"]);
+  assert.deepEqual(labelledValues([L("Passwords are hashed", 0, 300), L("abc", 320, 360)], SECRET_LABEL_ONLY), []);
+});
+
+test("NER span cleanup: subwords widen to words, lowercase edges trimmed, uncommon names kept", () => {
+  const t = "Parag Sawant Yesterday";
+  assert.deepEqual(toWordBoundaries(t, 6, 9), { start: 6, end: 12 }); // "Saw" -> "Sawant"
+  const u = "ping Priya Raman or";
+  const r = trimToNameWords(u, 0, 16);
+  assert.equal(u.slice(r.start, r.end), "Priya Raman");
+  assert.ok(looksLikePersonInContext("dentist with Aarav and", 13, 18));
+  assert.ok(!looksLikePersonInContext("works at Contoso Ltd", 9, 20));
+  const v = "ask Mei-Ling or Kwame at Contoso Ltd";
+  assert.deepEqual(coordinatedNames(v, [{ start: 4, end: 12, score: 0.9 }]).map((p) => v.slice(p.start, p.end)), ["Kwame"]);
+});
+
+test("face tiles cover the whole image", () => {
+  assert.deepEqual(tileStarts(500, 640, 512), [0]);
+  const starts = tileStarts(1604, 640, 512);
+  assert.equal(starts[0], 0);
+  assert.equal(starts.at(-1) + 640, 1604);
+});
+

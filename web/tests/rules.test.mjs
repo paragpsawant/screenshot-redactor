@@ -88,3 +88,41 @@ test("display helpers", () => {
   const p = maskPreview("sk-proj-9fQ2xLr7TbWm4KpZ8vNs3HcYd1");
   assert.ok(p.startsWith("sk-p") && !p.includes("9fQ2"));
 });
+
+// ---- regressions from a real chat screenshot (Teams): passwords with spaces, chat headers ----
+
+const SECRET_VALUES = [
+  ["password: hK3#9vLp jfn2n2mcnkc2", "hK3#9vLp jfn2n2mcnkc2"],
+  ["password: mypass jfn2n2mcnkc2", "mypass jfn2n2mcnkc2"],
+  ["Password = Summer2026!xQ7jfn2n2mcnkc2", "Summer2026!xQ7jfn2n2mcnkc2"],
+  ["password: hunter2 please", "hunter2"],            // stops at a plain word
+  ["pwd: Tr0ub4dor&3 Thanks", "Tr0ub4dor&3"],
+];
+for (const [text, value] of SECRET_VALUES) {
+  test(`secret value covers the whole value: ${text}`, () => {
+    const s = findSpans(text).find((x) => x.label === "PASSWORD_OR_SECRET");
+    assert.equal(text.slice(s.start, s.end), value);
+  });
+}
+
+const PEOPLE = [
+  ["Parag Sawant Yesterday 12:02 PM", "Parag Sawant"],
+  ["Parag Sawant 11:20 AM", "Parag Sawant"],
+  ["Olumide Adeyemi (External) Mon 9:05", "Olumide Adeyemi"],
+  ["Maria de la Cruz Sep 24, 2026, 3:41 PM", "Maria de la Cruz"],
+  ["thanks @Wei Zhang for the fix", "Wei Zhang"],
+  ["Hi Aarav, can you check this?", "Aarav"],
+  ["From: Siddharth Rao", "Siddharth Rao"],
+];
+for (const [text, name] of PEOPLE) {
+  test(`person rule: ${text}`, () => {
+    const s = findSpans(text, ["person"]);
+    assert.ok(s.some((x) => text.slice(x.start, x.end) === name), JSON.stringify(s.map((x) => text.slice(x.start, x.end))));
+  });
+}
+
+const NOT_PEOPLE = ["Daily Standup 9:30 AM", "Updated 3:45 PM", "Yesterday 12:15 PM", "Last read", "Hi Team, quick update",
+  "Sprint Planning Mon 10:00", "Shift+Enter starts a new line."];
+for (const text of NOT_PEOPLE) {
+  test(`no person false positive: ${text}`, () => assert.deepEqual(findSpans(text, ["person"]), []));
+}

@@ -31,7 +31,9 @@ export class Ner {
     const tokens = this.pipe.tokenizer.tokenize(text);
     const offsets = alignTokens(text, tokens);
     const preds = await this.pipe(text);
-    return groupEntities(preds, offsets, text)
+    const spans = groupEntities(preds, offsets, text)
+      .map((g) => (g.type === "ORGANIZATION" && looksLikePersonInContext(text, g.start, g.end) ? { ...g, type: "PERSON" } : g));
+    return [...spans, ...coordinatedNames(text, spans.filter((g) => g.type === "PERSON" && g.score >= threshold))]
       .filter((g) => g.score >= threshold && LABELS[g.type])
       .map((g) => ({ ...g, label: LABELS[g.type][0], category: LABELS[g.type][1] }))
       .filter((g) => categories.has(g.category))
@@ -105,10 +107,73 @@ export function groupEntities(preds, offsets, text) {
   }
   return merged.map((g) => {
     let { start, end } = g;
+    ({ start, end } = toWordBoundaries(text, start, end)); // "Saw" (subword) -> "Sawant"
     if (g.type === "LOCATION") ({ start, end } = extendAddress(text, start, end));
+    if (g.type === "PERSON") ({ start, end } = trimToNameWords(text, start, end)); // "ping Priya Raman" -> "Priya Raman"
     while (end > start && /[\s,.;:]/.test(text[end - 1])) end--;
     return { type: g.type, start, end, score: g.scores.reduce((a, b) => a + b, 0) / g.scores.length };
-  });
+  }).filter((g) => g.end > g.start);
+}
+
+/**
+ * Title-case names listed right next to a detected person ("Mei-Ling or Kwame", "Chen, Olga and
+ * Sid") are people too; the model often tags only some items of such lists.
+ */
+export function coordinatedNames(text, persons) {
+  const TITLE = String.raw`\p{Lu}[\p{Ll}\p{M}'’\-]+`;
+  const next = new RegExp(String.raw`^(?:\s*,\s*|\s+(?:and|or|&)\s+|\s*,\s*(?:and|or)\s+)(${TITLE}(?:\s+${TITLE})?)`, "u");
+  const found = [];
+  const taken = (s, e) => [...persons, ...found].some((p) => s < p.end && e > p.start);
+  for (const p of persons) {
+    let end = p.end;
+    for (let i = 0; i < 4; i++) {
+      const m = next.exec(text.slice(end));
+      if (!m || ORG_SUFFIX.test(m[1])) break;
+      const s = end + m[0].length - m[1].length, e = end + m[0].length;
+      const tail = text.slice(e);
+      if (/^\s+(?:Ltd|Inc|LLC|Corp|GmbH)\b/.test(tail)) break;
+      if (!taken(s, e)) found.push({ type: "PERSON", start: s, end: e, score: p.score });
+      end = e;
+    }
+  }
+  return found;
+}
+
+const WORD_CHAR = /[\p{L}\p{M}\p{N}'’\-]/u;
+
+const PERSON_CUES = new Set(["with", "and", "or", "ask", "asked", "ping", "cc", "tell", "told", "call", "called",
+  "meet", "met", "thanks", "thank", "from", "by", "dear", "hi", "hey", "hello", "via", "for", "to", "per", "@"]);
+const ORG_SUFFIX = /\b(?:Inc|LLC|Ltd|Corp|Corporation|Co|GmbH|AG|SA|PLC|University|College|Bank|Group|Labs?|Team|Foundation|Institute|Hospital|Clinic|Agency|Department|Dept|Ministry|Services|Solutions|Technologies|Systems|Software)\b\.?/;
+
+/**
+ * The small PII model often tags uncommon first names ("Aarav", "Mei-Ling") as ORGANIZATION.
+ * Treat such a span as a person when it is 1–3 title-case words right after a person cue word.
+ */
+export function looksLikePersonInContext(text, start, end) {
+  const span = text.slice(start, end).trim();
+  const words = span.split(/\s+/);
+  if (!words.length || words.length > 3 || ORG_SUFFIX.test(span)) return false;
+  if (!words.every((w) => /^\p{Lu}[\p{Ll}\p{M}'’\-]+$/u.test(w) || /^\p{Lo}+$/u.test(w))) return false;
+  const prev = /([\p{L}@]+)[\s,]*$/u.exec(text.slice(0, start));
+  return Boolean(prev && PERSON_CUES.has(prev[1].toLowerCase()));
+}
+
+/** Expand a span so it never starts or ends in the middle of a word. */
+export function toWordBoundaries(text, start, end) {
+  while (start > 0 && WORD_CHAR.test(text[start - 1]) && WORD_CHAR.test(text[start])) start--;
+  while (end < text.length && WORD_CHAR.test(text[end]) && WORD_CHAR.test(text[end - 1])) end++;
+  return { start, end };
+}
+
+/** Drop lowercase words at the edges of a person span; names are capitalised in screenshots. */
+export function trimToNameWords(text, start, end) {
+  const words = [...text.slice(start, end).matchAll(/\S+/g)];
+  const isName = (w) => /^\p{Lu}/u.test(w[0]) || /^\p{Lo}/u.test(w[0]);
+  let i = 0, j = words.length - 1;
+  while (i <= j && !isName(words[i])) i++;
+  while (j >= i && !isName(words[j])) j--;
+  if (i > j) return { start, end }; // all lowercase (e.g. OCR'd handle): keep the model's span
+  return { start: start + words[i].index, end: start + words[j].index + words[j][0].length };
 }
 
 /** Grow an address span over partially-tagged numbers and a trailing "ST 12345" / ZIP code. */
