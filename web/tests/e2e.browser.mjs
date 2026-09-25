@@ -20,8 +20,9 @@ const external = [];
 const problems = [];
 const nonGet = [];
 const baseHost = new URL(base).host;
-// Hugging Face serves a Space's large (LFS) files by redirecting to its own CDN; that is still this Space's files.
-const allowedHost = (h) => h === baseHost || /^cdn-lfs[\w-]*\.hf\.co$/.test(h);
+// Hugging Face serves a Space's large (LFS/Xet) files by redirecting to its own CDN (*.hf.co);
+// those are still this Space's files.
+const allowedHost = (h) => h === baseHost || /(^|\.)hf\.co$/.test(h);
 page.on("request", (r) => {
   const u = new URL(r.url());
   if (["blob:", "data:"].includes(u.protocol)) return;
