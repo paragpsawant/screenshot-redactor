@@ -35,7 +35,7 @@ console.log("   ./vendor/transformers.web.min.js");
 
 copy(join(nm, "jsqr", "dist", "jsQR.js"), join(web, "vendor", "jsQR.js"));
 
-const licDir = join(web, "vendor", "LICENSES");
+const licDir = join(web, "licenses"); // committed; vendor/ itself is a build output
 mkdirSync(licDir, { recursive: true });
 copy(join(tf, "LICENSE"), join(licDir, "transformers.js.txt"));
 copy(join(nm, "jsqr", "LICENSE"), join(licDir, "jsQR.txt"));
@@ -59,7 +59,7 @@ EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
 AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
 OR OTHER DEALINGS IN THE SOFTWARE.
 `);
-console.log("   ./vendor/LICENSES/onnxruntime-web.txt");
+console.log("   ./licenses/onnxruntime-web.txt");
 
 // The PII model is fetched once at dev time (e.g. by the Node tests' first run) into .cache.
 const piiDst = join(web, "models", "pii");
@@ -73,3 +73,4 @@ for (const f of ["ocr_det.onnx", "ocr_rec.onnx", "ocr_keys.json", "yunet.onnx"])
   if (!existsSync(join(web, "models", f))) throw new Error(`models/${f} is missing (see models/README.md)`);
 }
 console.log("done");
+

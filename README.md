@@ -51,9 +51,9 @@ screenshot ─► PP-OCRv6 text detection + recognition (ONNX Runtime Web, in a 
 | [`web/`](web/) | **The app.** Static site: vanilla JS + ONNX Runtime Web (WebAssembly). Deployed as a free static Hugging Face Space. | Any modern browser |
 | [`python/`](python/) | Gradio version with an HTTP API and an **MCP tool** (`redact_screenshot`) for scripts and AI agents. | Local, or a Gradio Space |
 
-Every library and model is bundled with the app ([`web/vendor/`](web/vendor/), [`web/models/`](web/models/)),
-so it never calls a CDN or third-party API. The CI browser test **fails if the page makes an upload or
-contacts any other host**.
+Every library and model ships with the app: models are committed in [`web/models/`](web/models/), and
+`npm run vendor` copies the pinned npm libraries into `web/vendor/` at build time. So it never calls a CDN
+or a third-party API. The CI browser test **fails if the page makes an upload or contacts any other host**.
 
 ## Run it locally
 
@@ -61,6 +61,7 @@ contacts any other host**.
 # Web app
 cd web
 npm ci
+npm run vendor       # copy the pinned runtime libraries into web/vendor (build output, not committed)
 npm run serve        # http://127.0.0.1:8080
 npm test             # 50 tests: rules + full pipeline on the real bundled models (Node)
 node tests/e2e.browser.mjs http://127.0.0.1:8080/   # real browser (Edge/Chrome); set E2E_BROWSER=chromium for Playwright's build
@@ -100,4 +101,5 @@ If this saved you from leaking a key, a ⭐ helps others find it.
 Apache-2.0. Bundled third-party work: PP-OCRv6 via RapidOCR (Apache-2.0), YuNet (MIT),
 bert-small-pii-detection (Apache-2.0), ONNX Runtime Web (MIT), transformers.js (Apache-2.0),
 jsQR (Apache-2.0). Sources and checksums are in [`web/models/README.md`](web/models/README.md); license texts are in
-[`web/vendor/LICENSES/`](web/vendor/LICENSES/) and [`web/models/LICENSES/`](web/models/LICENSES/).
+[`web/licenses/`](web/licenses/) and [`web/models/LICENSES/`](web/models/LICENSES/).
+

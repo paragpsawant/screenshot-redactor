@@ -80,4 +80,5 @@ Built by **Parag Sawant** ([@paragpsawant](https://github.com/paragpsawant) ·
 
 PP-OCRv6 via RapidOCR (Apache-2.0) · YuNet (MIT) · bert-small-pii-detection (Apache-2.0) ·
 ONNX Runtime Web (MIT) · transformers.js (Apache-2.0) · jsQR (Apache-2.0). License texts are in
-`vendor/LICENSES/` and `models/LICENSES/`; model sources and checksums are in `models/README.md`.
+`licenses/` and `models/LICENSES/`; model sources and checksums are in `models/README.md`.
+

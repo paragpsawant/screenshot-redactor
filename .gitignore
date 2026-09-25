@@ -10,3 +10,4 @@ python/.gradio/
 web/node_modules/
 web/.cache/
 web/_*.mjs
+web/vendor/

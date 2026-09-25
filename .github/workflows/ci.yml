@@ -27,10 +27,8 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
-      - name: Vendored libraries match package.json
-        run: |
-          npm run vendor
-          git diff --exit-code -- vendor
+      - name: Vendor runtime libraries (web/vendor is a build output)
+        run: npm run vendor
       - name: Unit + end-to-end pipeline tests (real models, onnxruntime-node)
         run: npm test
 
@@ -49,6 +47,7 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
+      - run: npm run vendor
       - run: npx playwright-core install --with-deps chromium
       - name: Serve the app and run the browser test
         env:

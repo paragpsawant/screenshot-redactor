@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  ONNXRUNTIME_NODE_INSTALL_CUDA: skip
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -20,6 +23,18 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           if [ -z "$HF_TOKEN" ]; then echo "::notice::HF_TOKEN secret not set; skipping deploy."; echo "ok=false" >> "$GITHUB_OUTPUT"; else echo "ok=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-node@v4
+        if: steps.token.outputs.ok == 'true'
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Build (vendor runtime libraries)
+        if: steps.token.outputs.ok == 'true'
+        working-directory: web
+        run: |
+          npm ci
+          npm run vendor
       - uses: actions/setup-python@v5
         if: steps.token.outputs.ok == 'true'
         with:
