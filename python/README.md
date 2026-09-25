@@ -21,7 +21,12 @@ preload_from_hub:
   - urchade/gliner_multi_pii-v1
 ---
 
-# 🕶️ Screenshot Auto-Redactor
+# 🕶️ Screenshot Auto-Redactor (Python / Gradio + MCP)
+
+> This is the **server-side** version, with an HTTP API and an MCP tool for scripts and AI agents.
+> The main, fully in-browser app is in [`../web`](../web), and a live demo runs at
+> **[huggingface.co/spaces/screenshot-redactor/app](https://huggingface.co/spaces/screenshot-redactor/app)**.
+> Built by [Parag Sawant (@paragpsawant)](https://github.com/paragpsawant).
 
 **Share screenshots without leaking secrets.** Drop in a screenshot and it finds and covers
 API keys, passwords, emails, phone numbers, card numbers, SSNs, IPs, names, addresses, faces
@@ -73,7 +78,7 @@ Every Space running this app is also an **MCP server** exposing one tool, `redac
 ```python
 from gradio_client import Client, handle_file
 
-client = Client("paragpsawant/screenshot-redactor")
+client = Client("<your-hf-username>/<your-gradio-space>")  # after deploying python/ as a Gradio Space
 image_path, report = client.predict(
     handle_file("screenshot.png"),
     ["secrets", "contact", "financial", "government_id", "network", "person", "location", "dates", "faces", "codes"],

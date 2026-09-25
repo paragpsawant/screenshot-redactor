@@ -92,3 +92,4 @@ footer p { margin: 4px 0; }
 .engine { font-size: 13px; }
 .engine[data-kind=ok] { color: var(--ok); }
 .engine[data-kind=warn] { color: var(--warn); }
+footer a { color: inherit; }

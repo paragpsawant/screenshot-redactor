@@ -9,9 +9,12 @@ const base = process.argv[2] || "http://127.0.0.1:8090/";
 const shotsDir = fileURLToPath(new URL("../.cache/e2e/", import.meta.url));
 mkdirSync(shotsDir, { recursive: true });
 const shot = (name) => `${shotsDir}${name}.png`;
+// E2E_BROWSER: "msedge" / "chrome" (installed browser) or "chromium" (Playwright's own build, used in CI).
 const channel = process.env.E2E_BROWSER || "msedge";
 
-const browser = await chromium.launch({ channel, headless: process.env.HEADED ? false : true });
+const browser = await chromium.launch({
+  ...(channel === "chromium" ? {} : { channel }), headless: process.env.HEADED ? false : true,
+});
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 const external = [];
 const problems = [];

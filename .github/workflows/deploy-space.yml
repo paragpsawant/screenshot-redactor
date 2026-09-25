@@ -1,0 +1,42 @@
+name: Deploy to Hugging Face Space
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", ".github/workflows/deploy-space.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for the HF_TOKEN secret
+        id: token
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then echo "::notice::HF_TOKEN secret not set; skipping deploy."; echo "ok=false" >> "$GITHUB_OUTPUT"; else echo "ok=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-python@v5
+        if: steps.token.outputs.ok == 'true'
+        with:
+          python-version: "3.12"
+      - name: Upload web/ to screenshot-redactor/app
+        if: steps.token.outputs.ok == 'true'
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          SHA: ${{ github.sha }}
+        run: |
+          pip install "huggingface_hub>=1.0"
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          HfApi().upload_folder(
+              folder_path="web", repo_id="screenshot-redactor/app", repo_type="space",
+              ignore_patterns=["node_modules/**", ".cache/**", "tests/**", "scripts/**",
+                               "package.json", "package-lock.json", "_*.mjs"],
+              commit_message=f"Deploy from GitHub {os.environ['SHA'][:7]}")
+          PY

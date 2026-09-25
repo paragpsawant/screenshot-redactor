@@ -74,6 +74,10 @@ Each character's position comes from the OCR model's CTC timesteps, so only the 
 
 ## Credits & licenses
 
+Built by **Parag Sawant** ([@paragpsawant](https://github.com/paragpsawant) ·
+[parags.dev](https://parags.dev)). Source code, CI and issues are on
+**[GitHub: paragpsawant/screenshot-redactor](https://github.com/paragpsawant/screenshot-redactor)**.
+
 PP-OCRv6 via RapidOCR (Apache-2.0) · YuNet (MIT) · bert-small-pii-detection (Apache-2.0) ·
 ONNX Runtime Web (MIT) · transformers.js (Apache-2.0) · jsQR (Apache-2.0). License texts are in
 `vendor/LICENSES/` and `models/LICENSES/`; model sources and checksums are in `models/README.md`.
