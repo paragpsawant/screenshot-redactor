@@ -39,7 +39,7 @@ jobs:
         if: steps.token.outputs.ok == 'true'
         with:
           python-version: "3.12"
-      - name: Upload web/ to screenshot-redactor/app
+      - name: Upload web/ to screenshot-redactor/pii-privacy-redaction
         if: steps.token.outputs.ok == 'true'
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -50,7 +50,7 @@ jobs:
           import os
           from huggingface_hub import HfApi
           HfApi().upload_folder(
-              folder_path="web", repo_id="screenshot-redactor/app", repo_type="space",
+              folder_path="web", repo_id="screenshot-redactor/pii-privacy-redaction", repo_type="space",
               ignore_patterns=["node_modules/**", ".cache/**", "tests/**", "scripts/**",
                                "package.json", "package-lock.json", "_*.mjs"],
               commit_message=f"Deploy from GitHub {os.environ['SHA'][:7]}")

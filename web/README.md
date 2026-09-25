@@ -7,14 +7,28 @@ sdk: static
 app_file: index.html
 pinned: false
 license: apache-2.0
-short_description: Hide API keys, PII, faces & QR codes in screenshots
-thumbnail: https://huggingface.co/spaces/screenshot-redactor/app/resolve/main/assets/social-preview.png
+short_description: Redact API keys, PII & faces in screenshots, in-browser
+thumbnail: https://huggingface.co/spaces/screenshot-redactor/pii-privacy-redaction/resolve/main/assets/social-preview.png
+models:
+  - onnx-community/bert-small-pii-detection-ONNX
+  - gravitee-io/bert-small-pii-detection
+  - PaddlePaddle/PP-OCRv6_tiny_det
+  - PaddlePaddle/PP-OCRv6_tiny_rec
+  - opencv/face_detection_yunet
 tags:
   - privacy
-  - redaction
   - pii
+  - pii-detection
+  - redaction
+  - anonymization
+  - data-anonymization
+  - privacy-tool
+  - security
+  - secrets-detection
+  - gdpr
   - ocr
   - onnx
+  - transformers.js
   - in-browser
 ---
 
