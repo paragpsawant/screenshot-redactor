@@ -2,7 +2,11 @@
 __pycache__/
 *.pyc
 .pytest_cache/
-app.log
-examples/_*
-flagged/
+*.log
+python/examples/_*
+python/flagged/
+python/.gradio/
 .gradio/
+web/node_modules/
+web/.cache/
+web/_*.mjs
