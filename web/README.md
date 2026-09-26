@@ -8,7 +8,7 @@ app_file: index.html
 pinned: false
 license: apache-2.0
 short_description: Redact API keys, PII & faces in screenshots, in-browser
-thumbnail: https://huggingface.co/spaces/screenshot-redactor/pii-privacy-redaction/resolve/main/assets/social-preview.png
+thumbnail: https://huggingface.co/spaces/cleanroom-ai/pii-privacy-redaction/resolve/main/assets/social-preview.png
 models:
   - onnx-community/bert-small-pii-detection-ONNX
   - gravitee-io/bert-small-pii-detection

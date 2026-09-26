@@ -5,14 +5,14 @@
 </p>
 
 [![CI](https://github.com/paragpsawant/screenshot-redactor/actions/workflows/ci.yml/badge.svg)](https://github.com/paragpsawant/screenshot-redactor/actions/workflows/ci.yml)
-[![Live demo on Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Live%20demo-Hugging%20Face%20Space-yellow)](https://huggingface.co/spaces/screenshot-redactor/pii-privacy-redaction)
+[![Live demo on Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Live%20demo-Hugging%20Face%20Space-yellow)](https://huggingface.co/spaces/cleanroom-ai/pii-privacy-redaction)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 ![Runs in your browser](https://img.shields.io/badge/runs-100%25%20in%20your%20browser-111827)
 
 **Hide API keys, passwords, emails, phone numbers, card numbers, SSNs, IPs, names, addresses, faces
 and QR codes in a screenshot before you share it. Everything runs on your device; the image is never uploaded.**
 
-👉 **Try it: [huggingface.co/spaces/screenshot-redactor/pii-privacy-redaction](https://huggingface.co/spaces/screenshot-redactor/pii-privacy-redaction)**
+👉 **Try it: [huggingface.co/spaces/cleanroom-ai/pii-privacy-redaction](https://huggingface.co/spaces/cleanroom-ai/pii-privacy-redaction)**
 
 | Before | After (one click) |
 |---|---|

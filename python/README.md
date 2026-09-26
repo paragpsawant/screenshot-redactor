@@ -25,7 +25,7 @@ preload_from_hub:
 
 > This is the **server-side** version, with an HTTP API and an MCP tool for scripts and AI agents.
 > The main, fully in-browser app is in [`../web`](../web), and a live demo runs at
-> **[huggingface.co/spaces/screenshot-redactor/pii-privacy-redaction](https://huggingface.co/spaces/screenshot-redactor/pii-privacy-redaction)**.
+> **[huggingface.co/spaces/cleanroom-ai/pii-privacy-redaction](https://huggingface.co/spaces/cleanroom-ai/pii-privacy-redaction)**.
 > Built by [Parag Sawant (@paragpsawant)](https://github.com/paragpsawant).
 
 **Share screenshots without leaking secrets.** Drop in a screenshot and it finds and covers

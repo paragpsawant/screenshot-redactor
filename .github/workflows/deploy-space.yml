@@ -50,7 +50,7 @@ jobs:
           import os
           from huggingface_hub import HfApi
           HfApi().upload_folder(
-              folder_path="web", repo_id="screenshot-redactor/pii-privacy-redaction", repo_type="space",
+              folder_path="web", repo_id="cleanroom-ai/pii-privacy-redaction", repo_type="space",
               ignore_patterns=["node_modules/**", ".cache/**", "tests/**", "scripts/**",
                                "package.json", "package-lock.json", "_*.mjs"],
               commit_message=f"Deploy from GitHub {os.environ['SHA'][:7]}")
