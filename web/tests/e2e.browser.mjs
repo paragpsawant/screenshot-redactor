@@ -15,7 +15,7 @@ const channel = process.env.E2E_BROWSER || "msedge";
 const browser = await chromium.launch({
   ...(channel === "chromium" ? {} : { channel }), headless: process.env.HEADED ? false : true,
 });
-await testEngineRetry(browser);
+if (/^http:\/\/(?:127\.0\.0\.1|localhost)/.test(base)) await testEngineRetry(browser);
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 const external = [];
 const problems = [];
