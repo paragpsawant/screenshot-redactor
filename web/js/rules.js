@@ -246,7 +246,7 @@ export const RULES = [
   rule("MAC_ADDRESS", "network", String.raw`\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b`),
   rule("MAC_ADDRESS", "network", String.raw`\b[0-9A-Fa-f]{4}\.[0-9A-Fa-f]{4}\.[0-9A-Fa-f]{4}\b`),
   rule("IP_ADDRESS", "network",
-    String.raw`(?<![\w:])(?:[0-9A-Fa-f]{0,4}:){2,7}(?:(?:\d{1,3}\.){3}\d{1,3}|[0-9A-Fa-f]{0,4})(?:%[A-Za-z0-9_.-]+)?(?![\w:.])`,
+    String.raw`(?<![\w:])(?:[0-9A-Fa-f]{0,4}:){2,7}(?:(?:\d{1,3}\.){3}\d{1,3}|[0-9A-Fa-f]{0,4})(?:%[A-Za-z0-9_.-]*[A-Za-z0-9_-])?(?![\w:]|\.\d)`,
     0, ipv6Ok),
   rule("IP_ADDRESS", "network", String.raw`\b(?:\d{1,3}\.){3}\d{1,3}\b`, 0, ipv4InContextOk),
 ];
@@ -338,10 +338,16 @@ function addEmailSpans(text, add) {
       const local = text.slice(start, at);
       if (!local || local.startsWith(".") || local.endsWith(".") || local.includes("..")) continue;
     }
-    while (end < text.length && end - at <= 256 && emailDomainChar(text[end])) end++;
+    let rawEnd = end;
+    while (rawEnd < text.length && rawEnd - at <= 256 && emailDomainChar(text[rawEnd])) rawEnd++;
+    // Sentence punctuation after an address ("mail tom@example.org.") is not part of the domain.
+    end = rawEnd;
+    while (end > at + 1 && (text[end - 1] === "." || text[end - 1] === "-")) end--;
     const domain = text.slice(at + 1, end);
     if (!validDomain(domain)) continue;
-    if (/[\p{L}\p{N}._%+\-"@]/u.test(text[start - 1] || "") || /[\p{L}\p{N}._%-]/u.test(text[end] || "")) continue;
+    // A quote before the address is fine ("tom@example.org" in JSON); quoted local parts start at the quote.
+    const before = text[start - 1] || "", after = text[end] || "";
+    if (/[\p{L}\p{N}._%+\-@]/u.test(before) || (end === rawEnd ? /[\p{L}\p{N}._%-]/u : /[\p{L}\p{N}_%]/u).test(after)) continue;
     add({ start, end, label: "EMAIL", category: "contact", score: 1, source: "rule" }, 52);
   }
 }

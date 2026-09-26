@@ -161,3 +161,24 @@ const NOT_PEOPLE = ["Daily Standup 9:30 AM", "Updated 3:45 PM", "Yesterday 12:15
 for (const text of NOT_PEOPLE) {
   test(`no person false positive: ${text}`, () => assert.deepEqual(findSpans(text, ["person"]), []));
 }
+
+// Same regression matrix as core v0.1.6: the linear email/IPv6 scanners must not drop quoted/JSON
+// addresses or addresses followed by sentence punctuation.
+test("emails, phones, cards, IPs and keys survive every common wrapping", () => {
+  const vals = {
+    EMAIL: ["tom.oneill@example.org", "a@b.co", "jane.doe+work@example.co.uk"],
+    PHONE: ["(415) 555-0132", "+44 20 7946 0958"],
+    CREDIT_CARD: ["4111 1111 1111 1111"],
+    IP_ADDRESS: ["203.0.113.42", "2001:db8::1"],
+    AWS_ACCESS_KEY: [awsKey],
+  };
+  const wraps = [(v) => v, (v) => `"${v}"`, (v) => `'${v}'`, (v) => `(${v})`, (v) => `${v}.`, (v) => `${v},`, (v) => `${v}...`,
+    (v) => `{"k": "${v}"}`, (v) => `k="${v}"`, (v) => `<k>${v}</k>`, (v) => `line1\n${v}\nline3`];
+  const misses = [];
+  for (const [label, list] of Object.entries(vals)) for (const v of list) for (const w of wraps) {
+    const t = "prefix " + w(v) + " suffix", at = t.indexOf(v);
+    if (!findSpans(t).some((s) => s.label === label && s.start <= at && s.end >= at + v.length)) misses.push(`${label} ${JSON.stringify(w(v))}`);
+  }
+  assert.deepEqual(misses, []);
+  for (const bad of ["not-an-email@", "a@b", "x@y.c", "foo@bar..com"]) assert.deepEqual(labels(bad).filter(([l]) => l === "EMAIL"), [], bad);
+});
