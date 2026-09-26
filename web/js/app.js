@@ -2,7 +2,6 @@ import { detectCodes } from "./codes.js";
 import { CATEGORY_COLORS, renderRedacted, renderReview } from "./redact.js";
 import { CATEGORIES, DEFAULT_CATEGORIES, maskPreview, prettyLabel } from "./rules.js";
 
-const MAX_SIDE = 4096;
 const $ = (sel) => document.querySelector(sel);
 
 const els = {
@@ -34,6 +33,9 @@ worker.onmessage = ({ data: m }) => {
     setStatus(m.text, "busy");
   } else if (m.type === "warning") {
     setStatus(m.text, "warn");
+  } else if (m.type === "error" && !m.id) {
+    downloads.clear();
+    setEngine(`Engine failed to start: ${m.text || "unknown error"}`, "error", true);
   } else if (m.type === "result" || m.type === "error") {
     const p = pending.get(m.id);
     if (!p) return;
@@ -41,8 +43,14 @@ worker.onmessage = ({ data: m }) => {
     m.type === "result" ? p.resolve(m) : p.reject(new Error(m.text));
   }
 };
-worker.onerror = (e) => setEngine(`Engine failed to start: ${e.message || "unknown error"}`, "warn");
-worker.postMessage({ type: "warmup", ner: false });
+worker.onerror = (e) => setEngine(`Engine failed to start: ${e.message || "unknown error"}`, "error", true);
+warmup();
+
+function warmup() {
+  downloads.clear();
+  setEngine("Starting engine…");
+  worker.postMessage({ type: "warmup", ner: false });
+}
 
 function scanInWorker(image, options) {
   const id = ++state.scanId;
@@ -90,10 +98,9 @@ async function loadFile(blob, name) {
     setStatus("That file isn't an image this browser can read.", "warn");
     return;
   }
-  const scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
   const c = document.createElement("canvas");
-  c.width = Math.round(bmp.width * scale);
-  c.height = Math.round(bmp.height * scale);
+  c.width = bmp.width;
+  c.height = bmp.height;
   const ctx = c.getContext("2d", { willReadFrequently: true });
   ctx.fillStyle = "#fff"; // flatten transparency like the Python app
   ctx.fillRect(0, 0, c.width, c.height);
@@ -286,9 +293,15 @@ function setStatus(text, kind = "") {
   els.status.textContent = text;
   els.status.dataset.kind = kind;
 }
-function setEngine(text, kind = "") {
+function setEngine(text, kind = "", retry = false) {
   els.engine.textContent = text;
   els.engine.dataset.kind = kind;
+  if (retry) {
+    els.engine.append(" ");
+    const btn = Object.assign(document.createElement("button"), { type: "button", textContent: "Retry" });
+    btn.addEventListener("click", warmup);
+    els.engine.append(btn);
+  }
 }
 function flash(btn, text) {
   const old = btn.textContent;

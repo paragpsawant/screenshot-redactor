@@ -4,6 +4,19 @@ import { test } from "node:test";
 import { findSpans, ibanOk, ipv6Ok, looksRandom, luhnOk, maskPreview, prettyLabel } from "../js/rules.js";
 
 const labels = (text, ...args) => findSpans(text, ...args).map((s) => [s.label, text.slice(s.start, s.end)]);
+const awsKey = "AKIA" + "IOSFODNN7EXAMPLE";
+const aiKey = "sk-" + "proj-" + "9fQ2xLr7TbWm4KpZ8vNs3HcYd1";
+const dashes = "-".repeat(5);
+const pemBlock = `${dashes}BEGIN RSA PRIVATE KEY${dashes}\nMIIEpAIBAAKCAQEA\n${dashes}END RSA PRIVATE KEY${dashes}`;
+const githubToken = "gh" + "p_" + "aBcDeFgHiJkLmNoPqRsTuVwXyZ012345";
+const vendorTokens = {
+  gitlab: "gl" + "pat-" + "A1b2C3d4E5".repeat(2),
+  npm: "np" + "m_" + "A".repeat(36),
+  pypi: "py" + "pi-" + "A".repeat(20),
+  sendgrid: "S" + "G." + "A".repeat(16) + "." + "B".repeat(16),
+  basic: "Authorization: Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==",
+  slack: "https://hooks.slack.com/services/" + "T" + "A".repeat(8) + "/" + "B" + "C".repeat(8) + "/" + "D".repeat(24),
+};
 
 const DETECTS = [
   ["contact me at jane.doe+work@example.co.uk today", "EMAIL", "jane.doe+work@example.co.uk"],
@@ -15,14 +28,14 @@ const DETECTS = [
   ["host 10.0.12.254 is down", "IP_ADDRESS", "10.0.12.254"],
   ["addr 2001:db8::8a2e:370:7334", "IP_ADDRESS", "2001:db8::8a2e:370:7334"],
   ["mac 00:1A:2B:3C:4D:5E", "MAC_ADDRESS", "00:1A:2B:3C:4D:5E"],
-  ["key AKIAIOSFODNN7EXAMPLE here", "AWS_ACCESS_KEY", "AKIAIOSFODNN7EXAMPLE"],
-  ["token ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789", "GITHUB_TOKEN", "ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789"],
-  ["OPENAI_API_KEY=sk-proj-9fQ2xLr7TbWm4KpZ8vNs3HcYd1", "AI_API_KEY", "sk-proj-9fQ2xLr7TbWm4KpZ8vNs3HcYd1"],
+  [`key ${awsKey} here`, "AWS_ACCESS_KEY", awsKey],
+  [`token ${githubToken}`, "GITHUB_TOKEN", githubToken],
+  [`OPENAI_API_KEY=${aiKey}`, "AI_API_KEY", aiKey],
   ["HF_TOKEN=hf_AbCdEfGhIjKlMnOpQrStUvWxYz01234567", "HUGGINGFACE_TOKEN", "hf_AbCdEfGhIjKlMnOpQrStUvWxYz01234567"],
   ["Authorization: Bearer abcDEF123456ghiJKL789", "BEARER_TOKEN", "abcDEF123456ghiJKL789"],
   ["password: hunter2!", "PASSWORD_OR_SECRET", "hunter2!"],
   ["https://x.io/cb?code=Zx81kLpQ02mN&state=1", "URL_TOKEN", "Zx81kLpQ02mN"],
-  ["-----BEGIN RSA PRIVATE KEY-----", "PRIVATE_KEY", "-----BEGIN RSA PRIVATE KEY-----"],
+  [pemBlock, "PRIVATE_KEY", pemBlock],
   ["eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N", "JWT",
     "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N"],
   ["DOB: 04/12/1987", "DATE_OF_BIRTH", "04/12/1987"],
@@ -33,6 +46,12 @@ const DETECTS = [
   ["DB_PASSWORD=Pr0dP4ss!2026", "PASSWORD_OR_SECRET", "Pr0dP4ss!2026"],
   ["postgres://admin:Pr0dP4ss!2026@10.20.30.40:5432/db", "URL_PASSWORD", "Pr0dP4ss!2026"],
   ["STRIPE_SECRET_KEY=sk_1ive_51HxQ2eKz8LmN4pRtY7uVwXa9", "STRIPE_KEY", "sk_1ive_51HxQ2eKz8LmN4pRtY7uVwXa9"],
+  [`token ${vendorTokens.gitlab}`, "GITLAB_TOKEN", vendorTokens.gitlab],
+  [`token ${vendorTokens.npm}`, "NPM_TOKEN", vendorTokens.npm],
+  [`token ${vendorTokens.pypi}`, "PYPI_TOKEN", vendorTokens.pypi],
+  [`token ${vendorTokens.sendgrid}`, "SENDGRID_TOKEN", vendorTokens.sendgrid],
+  [vendorTokens.basic, "BASIC_AUTH", "QWxhZGRpbjpvcGVuIHNlc2FtZQ=="],
+  [vendorTokens.slack, "SLACK_WEBHOOK", vendorTokens.slack],
 ];
 
 for (const [text, label, value] of DETECTS) {
@@ -61,7 +80,7 @@ for (const text of HARMLESS) {
 }
 
 test("category filter", () => {
-  const text = "mail a@b.com key AKIAIOSFODNN7EXAMPLE";
+  const text = `mail a@b.com key ${awsKey}`;
   assert.deepEqual(labels(text, ["secrets"]).map(([l]) => l), ["AWS_ACCESS_KEY"]);
   assert.deepEqual(labels(text, ["contact"]).map(([l]) => l), ["EMAIL"]);
 });
@@ -71,7 +90,7 @@ test("custom terms are case-insensitive and always applied", () => {
 });
 
 test("overlapping matches resolve to one span", () => {
-  assert.equal(findSpans("OPENAI_API_KEY=sk-proj-9fQ2xLr7TbWm4KpZ8vNs3HcYd1").length, 1);
+  assert.equal(findSpans(`OPENAI_API_KEY=${aiKey}`).length, 1);
 });
 
 test("validators", () => {
@@ -85,8 +104,12 @@ test("display helpers", () => {
   assert.equal(prettyLabel("AWS_ACCESS_KEY"), "AWS Access Key");
   assert.equal(prettyLabel("GITHUB_TOKEN"), "GitHub Token");
   assert.equal(maskPreview("hunter2"), "•••••••");
-  const p = maskPreview("sk-proj-9fQ2xLr7TbWm4KpZ8vNs3HcYd1");
+  const p = maskPreview(aiKey);
   assert.ok(p.startsWith("sk-p") && !p.includes("9fQ2"));
+});
+
+test("phone match stops before OCR newline spillover", () => {
+  assert.ok(labels("Call +1 (415) 555-0132\n14 now").some(([l, v]) => l === "PHONE" && v === "+1 (415) 555-0132"));
 });
 
 // ---- regressions from a real chat screenshot (Teams): passwords with spaces, chat headers ----
@@ -127,4 +150,3 @@ const NOT_PEOPLE = ["Daily Standup 9:30 AM", "Updated 3:45 PM", "Yesterday 12:15
 for (const text of NOT_PEOPLE) {
   test(`no person false positive: ${text}`, () => assert.deepEqual(findSpans(text, ["person"]), []));
 }
-

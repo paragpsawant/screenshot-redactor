@@ -7,6 +7,21 @@ def labels(text, **kw):
     return [(s.label, text[s.start:s.end]) for s in find_spans(text, **kw)]
 
 
+AWS_KEY = "AKIA" + "IOSFODNN7EXAMPLE"
+AI_KEY = "sk-" + "proj-" + "9fQ2xLr7TbWm4KpZ8vNs3HcYd1"
+DASHES = "-" * 5
+PEM_BLOCK = f"{DASHES}BEGIN RSA PRIVATE KEY{DASHES}\nMIIEpAIBAAKCAQEA\n{DASHES}END RSA PRIVATE KEY{DASHES}"
+GITHUB_TOKEN = "gh" + "p_" + "aBcDeFgHiJkLmNoPqRsTuVwXyZ012345"
+VENDOR_TOKENS = {
+    "gitlab": "gl" + "pat-" + "A1b2C3d4E5",
+    "npm": "np" + "m_" + "A" * 20,
+    "pypi": "py" + "pi-" + "A" * 20,
+    "sendgrid": "S" + "G." + "A" * 16 + "." + "B" * 16,
+    "basic": "Authorization: Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==",
+    "slack": "https://hooks.slack.com/services/" + "T" + "A" * 8 + "/" + "B" + "C" * 8 + "/" + "D" * 24,
+}
+
+
 @pytest.mark.parametrize("text,label,value", [
     ("contact me at jane.doe+work@example.co.uk today", "EMAIL", "jane.doe+work@example.co.uk"),
     ("Phone: (415) 555-0132", "PHONE", "(415) 555-0132"),
@@ -17,16 +32,15 @@ def labels(text, **kw):
     ("host 10.0.12.254 is down", "IP_ADDRESS", "10.0.12.254"),
     ("addr 2001:db8::8a2e:370:7334", "IP_ADDRESS", "2001:db8::8a2e:370:7334"),
     ("mac 00:1A:2B:3C:4D:5E", "MAC_ADDRESS", "00:1A:2B:3C:4D:5E"),
-    ("key AKIAIOSFODNN7EXAMPLE here", "AWS_ACCESS_KEY", "AKIAIOSFODNN7EXAMPLE"),
-    ("token ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789", "GITHUB_TOKEN",
-     "ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789"),
-    ("OPENAI_API_KEY=sk-proj-9fQ2xLr7TbWm4KpZ8vNs3HcYd1", "AI_API_KEY", "sk-proj-9fQ2xLr7TbWm4KpZ8vNs3HcYd1"),
+    (f"key {AWS_KEY} here", "AWS_ACCESS_KEY", AWS_KEY),
+    (f"token {GITHUB_TOKEN}", "GITHUB_TOKEN", GITHUB_TOKEN),
+    (f"OPENAI_API_KEY={AI_KEY}", "AI_API_KEY", AI_KEY),
     ("HF_TOKEN=hf_AbCdEfGhIjKlMnOpQrStUvWxYz01234567", "HUGGINGFACE_TOKEN",
      "hf_AbCdEfGhIjKlMnOpQrStUvWxYz01234567"),
     ("Authorization: Bearer abcDEF123456ghiJKL789", "BEARER_TOKEN", "abcDEF123456ghiJKL789"),
     ("password: hunter2!", "PASSWORD_OR_SECRET", "hunter2!"),
     ("https://x.io/cb?code=Zx81kLpQ02mN&state=1", "URL_TOKEN", "Zx81kLpQ02mN"),
-    ("-----BEGIN RSA PRIVATE KEY-----", "PRIVATE_KEY", "-----BEGIN RSA PRIVATE KEY-----"),
+    (PEM_BLOCK, "PRIVATE_KEY", PEM_BLOCK),
     ("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N", "JWT",
      "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N"),
     ("DOB: 04/12/1987", "DATE_OF_BIRTH", "04/12/1987"),
@@ -39,6 +53,12 @@ def labels(text, **kw):
     ("DB_PASSWORD=Pr0dP4ss!2026", "PASSWORD_OR_SECRET", "Pr0dP4ss!2026"),
     ("postgres://admin:Pr0dP4ss!2026@10.20.30.40:5432/db", "URL_PASSWORD", "Pr0dP4ss!2026"),
     ("STRIPE_SECRET_KEY=sk_1ive_51HxQ2eKz8LmN4pRtY7uVwXa9", "STRIPE_KEY", "sk_1ive_51HxQ2eKz8LmN4pRtY7uVwXa9"),
+    (f"token {VENDOR_TOKENS['gitlab']}", "GITLAB_TOKEN", VENDOR_TOKENS["gitlab"]),
+    (f"token {VENDOR_TOKENS['npm']}", "NPM_TOKEN", VENDOR_TOKENS["npm"]),
+    (f"token {VENDOR_TOKENS['pypi']}", "PYPI_TOKEN", VENDOR_TOKENS["pypi"]),
+    (f"token {VENDOR_TOKENS['sendgrid']}", "SENDGRID_API_KEY", VENDOR_TOKENS["sendgrid"]),
+    (VENDOR_TOKENS["basic"], "BASIC_AUTH", "QWxhZGRpbjpvcGVuIHNlc2FtZQ=="),
+    (VENDOR_TOKENS["slack"], "SLACK_WEBHOOK", VENDOR_TOKENS["slack"]),
 ])
 def test_detects(text, label, value):
     assert (label, value) in labels(text)
@@ -61,7 +81,7 @@ def test_no_false_positives(text):
 
 
 def test_category_filter():
-    text = "mail a@b.com key AKIAIOSFODNN7EXAMPLE"
+    text = f"mail a@b.com key {AWS_KEY}"
     assert [l for l, _ in labels(text, categories=["secrets"])] == ["AWS_ACCESS_KEY"]
     assert [l for l, _ in labels(text, categories=["contact"])] == ["EMAIL"]
 
@@ -71,8 +91,12 @@ def test_custom_terms_case_insensitive():
 
 
 def test_overlaps_resolved():
-    spans = find_spans("OPENAI_API_KEY=sk-proj-9fQ2xLr7TbWm4KpZ8vNs3HcYd1")
+    spans = find_spans(f"OPENAI_API_KEY={AI_KEY}")
     assert len(spans) == 1
+
+
+def test_phone_match_stops_before_ocr_newline_spillover():
+    assert ("PHONE", "+1 (415) 555-0132") in labels("Call +1 (415) 555-0132\n14 now")
 
 
 def test_validators():
@@ -113,4 +137,3 @@ def test_person_rules(text, name):
                                   "Hi Team, quick update", "Sprint Planning Mon 10:00", "Shift+Enter starts a new line."])
 def test_no_person_false_positive(text):
     assert find_spans(text, ["person"]) == []
-

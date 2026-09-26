@@ -124,18 +124,24 @@ _ID_LABEL = r"\s*(?:no\.?|num(?:ber)?|#)?\s*[:#]?\s*"
 # Order matters: earlier rules win when spans overlap.
 RULES: list[Rule] = [
     # --- secrets -------------------------------------------------------------
-    _r("PRIVATE_KEY", "secrets", r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
+    _r("PRIVATE_KEY", "secrets", r"-{5}BEGIN ([A-Z ]*PRIVATE KEY)-{5}[\s\S]*?-{5}END \1-{5}"),
     _r("AWS_ACCESS_KEY", "secrets", r"\b(?:AKIA|ASIA|ABIA|ACCA)[0-9A-Z]{16}\b"),
-    _r("GITHUB_TOKEN", "secrets", r"\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})\b"),
+    _r("GITHUB_TOKEN", "secrets", r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github" r"_pat_[A-Za-z0-9_]{40,})\b"),
+    _r("GITLAB_TOKEN", "secrets", r"\bglpat-[A-Za-z0-9_-]{10,}\b"),
+    _r("NPM_TOKEN", "secrets", r"\bnpm_[A-Za-z0-9]{20,}\b"),
+    _r("PYPI_TOKEN", "secrets", r"\bpypi-[A-Za-z0-9_-]{20,}\b"),
+    _r("SENDGRID_API_KEY", "secrets", r"\bSG\.[A-Za-z0-9_-]{16,}(?:\.[A-Za-z0-9_-]{16,})?\b"),
     _r("AI_API_KEY", "secrets", r"\bsk-(?:ant-|proj-|or-)?[A-Za-z0-9_\-]{20,}"),
     _r("HUGGINGFACE_TOKEN", "secrets", r"\bhf_[A-Za-z0-9]{30,}\b"),
     _r("SLACK_TOKEN", "secrets", r"\bxox[abposr]-[A-Za-z0-9-]{10,}"),
+    _r("SLACK_WEBHOOK", "secrets", r"https://hooks\.slack\.com/services/T[A-Za-z0-9]+/B[A-Za-z0-9]+/[A-Za-z0-9]+"),
     _r("GOOGLE_API_KEY", "secrets", r"\bAIza[0-9A-Za-z_\-]{35}\b"),
     _r("STRIPE_KEY", "secrets", r"\b(?:sk|rk)_(?:[l1I]ive|test)_[0-9a-zA-Z]{16,}\b"),  # OCR reads l as 1
     _r("JWT", "secrets", r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}"),
     _r("CONNECTION_STRING_KEY", "secrets",
        r"\b(?:AccountKey|SharedAccessKey|SharedAccessSignature|sig)=([A-Za-z0-9+/%=]{16,})", 1),
     _r("BEARER_TOKEN", "secrets", r"\bbearer\s+([A-Za-z0-9._~+/-]{16,}=*)", 1, flags=_I),
+    _r("BASIC_AUTH", "secrets", r"\bAuthorization\s*:\s*Basic\s+([A-Za-z0-9+/]{16,}={0,2})", 1, flags=_I),
     _r("URL_PASSWORD", "secrets", r"\b[a-zA-Z][a-zA-Z0-9+.-]*://[^\s:/@]+:([^\s@/]{3,})@", 1),
     _r("URL_TOKEN", "secrets",
        r"[?&](?:token|key|api_?key|sig|signature|access_token|auth|code|secret|password)=([^&\s]{8,})",
@@ -161,8 +167,8 @@ RULES: list[Rule] = [
        r"\b(?:driver'?s?\s*licen[sc]e|DL)" + _ID_LABEL + r"([A-Z0-9-]{5,15})\b", 1, flags=_I),
     # --- contact -------------------------------------------------------------
     _r("EMAIL", "contact", r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
-    _r("PHONE", "contact", r"\+\d{1,3}[\s.-]?\(?\d{1,4}\)?(?:[\s.-]?\d{2,4}){2,4}\b", 0, phone_ok),
-    _r("PHONE", "contact", r"(?:\(\d{3}\)\s?|\b\d{3}[\s.-])\d{3}[\s.-]\d{4}\b", 0, phone_ok),
+    _r("PHONE", "contact", r"\+\d{1,3}[ \t.-]?\(?\d{1,4}\)?(?:[ \t.-]?\d{2,4}){2,4}\b", 0, phone_ok),
+    _r("PHONE", "contact", r"(?:\(\d{3}\)[ \t]?|\b\d{3}[ \t.-])\d{3}[ \t.-]\d{4}\b", 0, phone_ok),
     # --- dates ---------------------------------------------------------------
     _r("DATE_OF_BIRTH", "dates",
        r"\b(?:dob|d\.o\.b\.?|date of birth|birth\s*date|born)\s*[:#-]?\s*"

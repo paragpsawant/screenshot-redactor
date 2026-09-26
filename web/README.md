@@ -82,6 +82,10 @@ screenshot ─► PP-OCRv6 text detection + recognition (ONNX Runtime Web, in a 
 Each character's position comes from the OCR model's CTC timesteps, so only the value is covered:
 `OPENAI_API_KEY=` stays readable, the key does not.
 
+The browser app keeps local `web/js/` engine copies because `scripts/vendor.mjs` only vendors runtime
+libraries and models; the rule/pipeline copies are synced from `cleanroom-core` v0.1.4, with
+screenshot-specific OCR tiling and rotated-text handling layered in this app.
+
 > ⚠️ Blur and pixelation can sometimes be reversed for text. Use **black box** for anything secret.
 
 ## Limitations
@@ -117,4 +121,3 @@ Built by **Parag Sawant** ([@paragpsawant](https://github.com/paragpsawant) ·
 PP-OCRv6 via RapidOCR (Apache-2.0) · YuNet (MIT) · bert-small-pii-detection (Apache-2.0) ·
 ONNX Runtime Web (MIT) · transformers.js (Apache-2.0) · jsQR (Apache-2.0). License texts are in
 `licenses/` and `models/LICENSES/`; model sources and checksums are in `models/README.md`.
-

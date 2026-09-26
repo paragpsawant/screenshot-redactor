@@ -1,10 +1,11 @@
 // Text detection + recognition with PP-OCRv6 (same models as RapidOCR), ported to JS.
 // `ort` is injected so this runs with onnxruntime-web (browser) or onnxruntime-node (tests).
 
-import { resizeRegion, writeBGR } from "./image.js";
+import { cropImage, resizeRegion, rotateImage90, writeBGR } from "./image.js";
 
 const DET = { limitSideLen: 736, maxSideLen: 2000, thresh: 0.3, boxThresh: 0.5, unclipRatio: 1.6, minSize: 3 };
 const REC = { height: 48, baseWidth: 320, batch: 6, minScore: 0.5 };
+const TILE = { size: 1800, overlap: 96 };
 
 export class OCR {
   constructor(ort, det, rec, keys) {
@@ -27,6 +28,23 @@ export class OCR {
 
   /** Returns [{text, score, box:{x0,y0,x1,y1}, bounds:[[t0,t1] per UTF-16 unit]}] in image pixels. */
   async run(img) {
+    const lines = [];
+    const tiles = imageTiles(img);
+    const rotateTiles = tiles.length <= 4;
+    for (const tile of tiles) {
+      lines.push(...(await this.runSingle(tile)).map((l) => offsetLine(l, tile.offsetX, tile.offsetY)));
+      if (!rotateTiles) continue;
+      for (const clockwise of [true, false]) {
+        const rotated = rotateImage90(tile, clockwise);
+        const rotatedLines = await this.runSingle(rotated);
+        lines.push(...rotatedLines.map((l) => offsetLine(mapRotatedLine(l, tile.width, tile.height, clockwise),
+          tile.offsetX, tile.offsetY)));
+      }
+    }
+    return dedupeLines(lines);
+  }
+
+  async runSingle(img) {
     const boxes = await this.detect(img);
     if (!boxes.length) return [];
     const lines = await this.recognize(img, boxes);
@@ -40,6 +58,7 @@ export class OCR {
       // Upscale short images so small text is detectable, but keep the long side bounded for speed.
       ratio = Math.max(ratio, Math.min(DET.limitSideLen / Math.min(w, h), DET.maxSideLen / Math.max(w, h)));
     }
+
     const rw = Math.max(32, Math.round(Math.trunc(w * ratio) / 32) * 32);
     const rh = Math.max(32, Math.round(Math.trunc(h * ratio) / 32) * 32);
     const rgba = resizeRegion(img, 0, 0, w, h, rw, rh);
@@ -83,6 +102,69 @@ export class OCR {
     }
     return results;
   }
+}
+
+function imageTiles(img) {
+  if (Math.max(img.width, img.height) <= DET.maxSideLen) return [{ ...img, offsetX: 0, offsetY: 0 }];
+  const xs = tileStarts(img.width);
+  const ys = tileStarts(img.height);
+  const out = [];
+  for (const y of ys) {
+    for (const x of xs) {
+      const w = Math.min(TILE.size, img.width - x);
+      const h = Math.min(TILE.size, img.height - y);
+      out.push(cropImage(img, x, y, w, h));
+    }
+  }
+  return out;
+}
+
+function tileStarts(total) {
+  if (total <= TILE.size) return [0];
+  const step = TILE.size - TILE.overlap;
+  const out = [];
+  for (let v = 0; v + TILE.size < total; v += step) out.push(v);
+  const last = total - TILE.size;
+  if (out.at(-1) !== last) out.push(last);
+  return out;
+}
+
+function offsetLine(line, dx, dy) {
+  if (!dx && !dy) return line;
+  return { ...line, box: { x0: line.box.x0 + dx, y0: line.box.y0 + dy, x1: line.box.x1 + dx, y1: line.box.y1 + dy } };
+}
+
+function mapRotatedLine(line, w, h, clockwise) {
+  const b = line.box;
+  const box = clockwise
+    ? { x0: b.y0, y0: h - b.x1, x1: b.y1, y1: h - b.x0 }
+    : { x0: w - b.y1, y0: b.x0, x1: w - b.y0, y1: b.x1 };
+  return { ...line, box: normalizeBox(box, w, h), orientation: clockwise ? "cw" : "ccw" };
+}
+
+function normalizeBox(b, w, h) {
+  return {
+    x0: clamp(Math.min(b.x0, b.x1), 0, w),
+    y0: clamp(Math.min(b.y0, b.y1), 0, h),
+    x1: clamp(Math.max(b.x0, b.x1), 0, w),
+    y1: clamp(Math.max(b.y0, b.y1), 0, h),
+  };
+}
+
+function dedupeLines(lines) {
+  const kept = [];
+  for (const line of lines.sort((a, b) => b.score - a.score)) {
+    if (!kept.some((k) => k.text === line.text && overlapRatio(k.box, line.box) > 0.75)) kept.push(line);
+  }
+  return kept.sort((a, b) => a.box.y0 - b.box.y0 || a.box.x0 - b.box.x0);
+}
+
+function overlapRatio(a, b) {
+  const x = Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0));
+  const y = Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
+  const inter = x * y;
+  const area = Math.min((a.x1 - a.x0) * (a.y1 - a.y0), (b.x1 - b.x0) * (b.y1 - b.y0));
+  return area > 0 ? inter / area : 0;
 }
 
 /** DB (differentiable binarization) post-processing for axis-aligned screen text. */

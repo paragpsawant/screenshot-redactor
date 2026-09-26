@@ -47,3 +47,25 @@ export function writeBGR(dst, offset, rgba, w, h, dstW, { scale = 1 / 255, mean 
     }
   }
 }
+
+export function cropImage(img, sx, sy, sw, sh) {
+  const out = new Uint8ClampedArray(sw * sh * 4);
+  for (let y = 0; y < sh; y++) {
+    const src = ((sy + y) * img.width + sx) * 4;
+    out.set(img.data.subarray(src, src + sw * 4), y * sw * 4);
+  }
+  return { data: out, width: sw, height: sh, offsetX: sx, offsetY: sy };
+}
+
+export function rotateImage90(img, clockwise = true) {
+  const out = new Uint8ClampedArray(img.width * img.height * 4);
+  const dw = img.height;
+  for (let y = 0; y < img.height; y++) {
+    for (let x = 0; x < img.width; x++) {
+      const dx = clockwise ? img.height - 1 - y : y;
+      const dy = clockwise ? x : img.width - 1 - x;
+      out.set(img.data.subarray((y * img.width + x) * 4, (y * img.width + x) * 4 + 4), (dy * dw + dx) * 4);
+    }
+  }
+  return { data: out, width: img.height, height: img.width };
+}

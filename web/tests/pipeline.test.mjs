@@ -105,6 +105,13 @@ test("spanBox pads inside the line and reaches the edges at line ends", () => {
   assert.ok(all.x0 <= 0 && all.x1 >= 100);
 });
 
+test("spanBox maps rotated OCR character bounds along the vertical axis", () => {
+  const line = { text: "abcdef", orientation: "cw", box: { x0: 40, y0: 100, x1: 70, y1: 220 },
+    bounds: [[0, 1 / 6], [1 / 6, 2 / 6], [2 / 6, 3 / 6], [3 / 6, 4 / 6], [4 / 6, 5 / 6], [5 / 6, 1]] };
+  const box = spanBox(line, 0, 3, 0, 0);
+  assert.deepEqual(box, { x0: 40, x1: 70, y0: 160, y1: 220 });
+});
+
 // ---- regressions from a real chat screenshot (synthetic fixture: tests/fixtures/chat.png) ----
 
 test("chat screenshot: sender headers, inline names and full passwords are covered", async () => {
@@ -152,4 +159,3 @@ test("face tiles cover the whole image", () => {
   assert.equal(starts[0], 0);
   assert.equal(starts.at(-1) + 640, 1604);
 });
-

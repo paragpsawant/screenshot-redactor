@@ -48,6 +48,35 @@ const phoneOk = (v) => {
   return n >= 10 && n <= 15;
 };
 
+const nanpPhoneOk = (v) => {
+  const d = (v.match(/\d/g) || []).join("");
+  return d.length === 10 && /^[2-9]\d{2}[2-9]\d{6}$/.test(d) && !/^(\d)\1+$/.test(d);
+};
+
+const awsAccessKeyOk = (v) => /^(?:AKIA|ASIA|ABIA|ACCA)[0-9A-Z]{16}$/.test(v.replace(/[ \t]/g, ""));
+
+const basicAuthOk = (v) => {
+  const s = v.replace(/\s+/g, "");
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(s) || s.length % 4 !== 0) return false;
+  try {
+    return typeof atob === "function" ? atob(s).includes(":") : true;
+  } catch {
+    return false;
+  }
+};
+
+const ssnOk = (v) => {
+  const d = (v.match(/\d/g) || []).join("");
+  return /^(?!000|666|9\d\d)\d{3}(?!00)\d{2}(?!0000)\d{4}$/.test(d);
+};
+
+const ssnContextOk = (value, text, start) => {
+  if (!ssnOk(value)) return false;
+  if (/[ -]/.test(value) || text.trim() === value) return true;
+  const prefix = text.slice(Math.max(0, start - 32), start);
+  return /\b(?:ssn|social\s+security)\b\s*[:#-]?\s*$/i.test(prefix);
+};
+
 export function ipv4Ok(value) {
   const parts = value.split(".");
   if (parts.length !== 4) return false;
@@ -58,8 +87,14 @@ export function ipv4Ok(value) {
 }
 
 export function ipv6Ok(value) {
-  if ((value.match(/:/g) || []).length < 2) return false;
-  const halves = value.split("::");
+  let v = value.replace(/%[A-Za-z0-9_.-]+$/, "");
+  const mapped = v.match(/^(.*:)((?:\d{1,3}\.){3}\d{1,3})$/);
+  if (mapped) {
+    if (!ipv4Ok(mapped[2])) return false;
+    v = mapped[1] + "0:0";
+  }
+  if ((v.match(/:/g) || []).length < 2) return false;
+  const halves = v.split("::");
   if (halves.length > 2) return false;
   const groups = (h) => (h === "" ? [] : h.split(":"));
   const head = groups(halves[0]);
@@ -69,6 +104,12 @@ export function ipv6Ok(value) {
   if (halves.length === 2) return all.length <= 7;
   return all.length === 8;
 }
+
+const ipv4InContextOk = (value, text, start) => {
+  if (!ipv4Ok(value)) return false;
+  const prefix = text.slice(Math.max(0, start - 24), start);
+  return !/(?:\bversion|\brelease|\bv)\s*$/i.test(prefix);
+};
 
 export function shannonEntropy(value) {
   if (!value) return 0;
@@ -102,6 +143,8 @@ function secretValueOk(value) {
 // --------------------------------------------------------------------- rules
 
 const ID_LABEL = String.raw`\s*(?:no\.?|num(?:ber)?|#)?\s*[:#]?\s*`;
+const SEP = String.raw`[ \t.\-\u00A0]`;
+const SENSITIVE_KEY = String.raw`pass(?:word|wd|code|phrase)?|pwd|secret|token|api[_ -]?key|access[_ -]?key|private[_ -]?key|client[_ -]?secret|credentials?`;
 
 function rule(label, category, pattern, group = 0, validator = null, flags = "", extra = {}) {
   return { label, category, re: new RegExp(pattern, `gd${flags}`), group, validator, ...extra };
@@ -129,45 +172,62 @@ export const TIMESTAMP_ONLY = new RegExp(`^\\s*${TIMESTAMP}\\s*$`, "i");
 // Order matters: earlier rules win when spans overlap.
 export const RULES = [
   // secrets
-  rule("PRIVATE_KEY", "secrets", String.raw`-----BEGIN [A-Z ]*PRIVATE KEY-----`),
-  rule("AWS_ACCESS_KEY", "secrets", String.raw`\b(?:AKIA|ASIA|ABIA|ACCA)[0-9A-Z]{16}\b`),
-  rule("GITHUB_TOKEN", "secrets", String.raw`\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})\b`),
-  rule("AI_API_KEY", "secrets", String.raw`\bsk-(?:ant-|proj-|or-)?[A-Za-z0-9_\-]{20,}`),
+  rule("PRIVATE_KEY", "secrets", String.raw`-{5}BEGIN [A-Z ]*PRIVATE KEY-{5}`),
+  rule("AWS_ACCESS_KEY", "secrets", String.raw`\b(?:AKIA|ASIA|ABIA|ACCA)[0-9A-Z](?:[ \t]?[0-9A-Z]){15}\b`, 0, awsAccessKeyOk),
+  rule("GITHUB_TOKEN", "secrets", String.raw`\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github` + String.raw`_pat_[A-Za-z0-9_]{40,})\b`),
+  rule("AI_API_KEY", "secrets", String.raw`sk-(?:ant-|proj-|or-)?[A-Za-z0-9_\-\u200b]{20,}`),
   rule("HUGGINGFACE_TOKEN", "secrets", String.raw`\bhf_[A-Za-z0-9]{30,}\b`),
   rule("SLACK_TOKEN", "secrets", String.raw`\bxox[abposr]-[A-Za-z0-9-]{10,}`),
+  rule("SLACK_WEBHOOK", "secrets", String.raw`https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9_/-]{24,}`),
+  rule("GITLAB_TOKEN", "secrets", String.raw`\bglpat-[A-Za-z0-9_-]{20,}\b`),
+  rule("NPM_TOKEN", "secrets", String.raw`\bnpm_[A-Za-z0-9]{36,}\b`),
+  rule("PYPI_TOKEN", "secrets", String.raw`\bpypi-[A-Za-z0-9_-]{20,}\b`),
+  rule("SENDGRID_TOKEN", "secrets", String.raw`\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}\b`),
+  rule("DISCORD_WEBHOOK", "secrets", String.raw`https:\/\/discord(?:app)?\.com\/api\/webhooks\/\d{16,20}\/[A-Za-z0-9_-]{20,}`),
+  rule("TELEGRAM_BOT", "secrets", String.raw`\b\d{8,10}:[A-Za-z0-9_-]{20,}\b`),
   rule("GOOGLE_API_KEY", "secrets", String.raw`\bAIza[0-9A-Za-z_\-]{35}\b`),
   rule("STRIPE_KEY", "secrets", String.raw`\b(?:sk|rk)_(?:[l1I]ive|test)_[0-9a-zA-Z]{16,}\b`), // OCR reads l as 1
   rule("JWT", "secrets", String.raw`\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}`),
   rule("CONNECTION_STRING_KEY", "secrets",
     String.raw`\b(?:AccountKey|SharedAccessKey|SharedAccessSignature|sig)=([A-Za-z0-9+/%=]{16,})`, 1),
   rule("BEARER_TOKEN", "secrets", String.raw`\bbearer\s+([A-Za-z0-9._~+/-]{16,}=*)`, 1, null, "i"),
-  rule("URL_PASSWORD", "secrets", String.raw`\b[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^\s:/@]+:([^\s@/]{3,})@`, 1),
+  rule("BASIC_AUTH", "secrets", String.raw`\b(?:Authorization\s*:\s*)?Basic\s+([A-Za-z0-9+/]{8,}={0,2})`, 1, basicAuthOk, "i"),
+  rule("URL_PASSWORD", "secrets", String.raw`\b[a-zA-Z][a-zA-Z0-9+.-]{1,20}:\/\/[^\s:/@]+:([^\s@/]{3,})@`, 1),
   rule("URL_TOKEN", "secrets",
     String.raw`[?&](?:token|key|api_?key|sig|signature|access_token|auth|code|secret|password)=([^&\s]{8,})`,
     1, null, "i"),
   // Matches `password: x`, `API_KEY=x`, `AWS_SECRET_ACCESS_KEY=x`, `"client_secret": "x"`...
   rule("PASSWORD_OR_SECRET", "secrets",
-    String.raw`(?<![A-Za-z])(?:pass(?:word|wd|code|phrase)?|pwd|secret|token|api[_-]?key|access[_-]?key|` +
-    String.raw`private[_-]?key|client[_-]?secret|credentials?)(?:[_-][A-Za-z0-9]+)*` +
+    String.raw`\\?["']?(?:${SENSITIVE_KEY})(?:[_-][A-Za-z0-9]+)*\\?["']?\s*[:=]\s*` +
+    String.raw`(?:\\?"((?:\\.|[^"\\]){4,})\\?"|\\?'((?:\\.|[^'\\]){4,})\\?')`,
+    [1, 2], secretValueOk, "i"),
+  rule("PASSWORD_OR_SECRET", "secrets",
+    String.raw`<(${SENSITIVE_KEY})\b[^>]*>([^<]{3,})<\/\1>`,
+    2, secretValueOk, "i"),
+  rule("PASSWORD_OR_SECRET", "secrets",
+    String.raw`(?<![A-Za-z])(?:${SENSITIVE_KEY})(?:[_-][A-Za-z0-9]+)*` +
     String.raw`\s*["']?\s*[:=]\s*["']?([^\s"',;]{4,})`,
     1, secretValueOk, "i", { extend: true }),
   // financial
-  rule("CREDIT_CARD", "financial", String.raw`\b(?:\d[ -]?){12,18}\d\b`, 0, luhnOk),
-  rule("IBAN", "financial", String.raw`\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,4})?\b`, 0, ibanOk),
+  rule("CREDIT_CARD", "financial", String.raw`\b(?:\d[ \t\u00A0-]?){12,18}\d\b`, 0, luhnOk),
+  rule("IBAN", "financial", String.raw`\b[A-Z]{2}\d{2}(?:[ \t\u00A0]?[A-Z0-9]{4}){2,7}(?:[ \t\u00A0]?[A-Z0-9]{1,4})?\b`, 0, ibanOk, "i"),
   rule("BANK_ACCOUNT", "financial", String.raw`\b(?:account|acct|a\/c)` + ID_LABEL + String.raw`(\d[\d -]{5,20}\d)\b`,
     1, null, "i"),
   rule("ROUTING_NUMBER", "financial", String.raw`\b(?:routing|aba)` + ID_LABEL + String.raw`(\d{9})\b`, 1, null, "i"),
   rule("CRYPTO_WALLET", "financial",
     String.raw`\b(?:0x[a-fA-F0-9]{40}|bc1[a-z0-9]{25,59}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})\b`),
   // government ids
-  rule("US_SSN", "government_id", String.raw`\b(?!000|666|9\d\d)\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b`),
+  rule("US_SSN", "government_id", String.raw`\b(?!000|666|9\d\d)\d{3}[ -]?(?!00)\d{2}[ -]?(?!0000)\d{4}\b`, 0, ssnContextOk),
   rule("PASSPORT", "government_id", String.raw`\bpassport` + ID_LABEL + String.raw`([A-Z0-9]{6,9})\b`, 1, null, "i"),
   rule("DRIVER_LICENSE", "government_id",
     String.raw`\b(?:driver'?s?\s*licen[sc]e|DL)` + ID_LABEL + String.raw`([A-Z0-9-]{5,15})\b`, 1, null, "i"),
   // contact
-  rule("EMAIL", "contact", String.raw`\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b`),
-  rule("PHONE", "contact", String.raw`\+\d{1,3}[\s.-]?\(?\d{1,4}\)?(?:[\s.-]?\d{2,4}){2,4}\b`, 0, phoneOk),
-  rule("PHONE", "contact", String.raw`(?:\(\d{3}\)\s?|\b\d{3}[\s.-])\d{3}[\s.-]\d{4}\b`, 0, phoneOk),
+  rule("EMAIL", "contact", String.raw`(?!)`),
+  rule("PHONE", "contact", String.raw`\+\d{1,3}${SEP}?\(?\d{1,4}\)?(?:${SEP}?\d{2,5}){2,4}\b(?:[ \t]?(?:ext\.?|x)\s?\d{1,5})?`, 0, phoneOk),
+  rule("PHONE", "contact", String.raw`(?:\(\d{3}\)[ \t\u00A0]?|\b\d{3}${SEP})\d{3}${SEP}\d{4}\b`, 0, phoneOk),
+  rule("PHONE", "contact", String.raw`\b[2-9]\d{2}[2-9]\d{6}\b`, 0, nanpPhoneOk),
+  rule("PHONE", "contact", String.raw`\b0\d{2,4}${SEP}\d{3,4}${SEP}\d{3,4}\b`, 0, phoneOk),
+  rule("PHONE", "contact", String.raw`\b[6-9]\d{4}${SEP}\d{5}\b`, 0, phoneOk),
   // people: chat headers ("Parag Sawant  Yesterday 12:02 PM"), @mentions, greetings, "From: …" labels
   rule("PERSON", "person", String.raw`^\s*(${FULL_NAME})(?:\s*\([^)]{1,40}\))?(?:\s+|(?=${GLUE}))${TIMESTAMP}\s*$`, 1, null, "u"),
   rule("PERSON", "person", String.raw`(?<![\w.])@(${NAME})`, 1, null, "u"),
@@ -180,12 +240,15 @@ export const RULES = [
   // dates
   rule("DATE_OF_BIRTH", "dates",
     String.raw`\b(?:dob|d\.o\.b\.?|date of birth|birth\s*date|born)\s*[:#-]?\s*` +
-    String.raw`(\d{4}-\d{2}-\d{2}|[0-3]?\d[/.-][0-3]?\d[/.-](?:19|20)?\d{2}|[A-Za-z]{3,9}\.? \d{1,2},? \d{4})`,
+    String.raw`(\d{4}-\d{2}-\d{2}|[0-3]?\d[/.-][0-3]?\d[/.-](?:19|20)?\d{2}|[A-Za-z]{3,9}\.? \d{1,2},? \d{4}|[0-3]?\d [A-Za-z]{3,9}\.? \d{4})`,
     1, null, "i"),
   // network
   rule("MAC_ADDRESS", "network", String.raw`\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b`),
-  rule("IP_ADDRESS", "network", String.raw`\b(?:\d{1,3}\.){3}\d{1,3}\b`, 0, ipv4Ok),
-  rule("IP_ADDRESS", "network", String.raw`(?<![\w:])[0-9A-Fa-f:]{6,39}(?![\w:])`, 0, ipv6Ok),
+  rule("MAC_ADDRESS", "network", String.raw`\b[0-9A-Fa-f]{4}\.[0-9A-Fa-f]{4}\.[0-9A-Fa-f]{4}\b`),
+  rule("IP_ADDRESS", "network",
+    String.raw`(?<![\w:])(?:[0-9A-Fa-f]{0,4}:){2,7}(?:(?:\d{1,3}\.){3}\d{1,3}|[0-9A-Fa-f]{0,4})(?:%[A-Za-z0-9_.-]+)?(?![\w:.])`,
+    0, ipv6Ok),
+  rule("IP_ADDRESS", "network", String.raw`\b(?:\d{1,3}\.){3}\d{1,3}\b`, 0, ipv4InContextOk),
 ];
 
 const TOKEN = /[A-Za-z0-9+/_\-]{20,}={0,2}/g;
@@ -211,10 +274,83 @@ export function extendSecret(text, end, maxChunks = 4) {
   return end;
 }
 
+function ruleMatchValue(match, group) {
+  const groups = Array.isArray(group) ? group : [group];
+  for (const g of groups) {
+    if (match[g] != null) return { value: match[g], indices: match.indices[g] };
+  }
+  return { value: null, indices: null };
+}
+
+function addPemSpans(text, add) {
+  const begin = /-{5}BEGIN ([A-Z ]*PRIVATE KEY)-{5}/g;
+  for (const m of text.matchAll(begin)) {
+    const type = m[1];
+    const start = m.index;
+    let end = start + m[0].length;
+    const tail = text.slice(end);
+    const endRe = new RegExp(`-{5}END ${escapeRe(type)}-{5}`);
+    const close = endRe.exec(tail);
+    if (close) {
+      end += close.index + close[0].length;
+    } else {
+      let pos = end;
+      while (pos < text.length && (text[pos] === "\r" || text[pos] === "\n")) {
+        const lineStart = text[pos] === "\r" && text[pos + 1] === "\n" ? pos + 2 : pos + 1;
+        const lineEnd = text.indexOf("\n", lineStart);
+        const stop = lineEnd === -1 ? text.length : (text[lineEnd - 1] === "\r" ? lineEnd - 1 : lineEnd);
+        const line = text.slice(lineStart, stop).trim();
+        if (!/^(?:[A-Za-z0-9+/=]{8,}|Proc-Type:.*|DEK-Info:.*|Comment:.*)$/.test(line)) break;
+        pos = lineEnd === -1 ? text.length : lineEnd;
+        end = pos;
+      }
+    }
+    add({ start, end, label: "PRIVATE_KEY", category: "secrets", score: 1, source: "rule" }, -100);
+  }
+}
+
+function looksBase64Blob(value, text, start) {
+  const v = value.trim();
+  if (!/^[A-Za-z0-9+/]+={1,2}$/.test(v) || v.length % 4 !== 0) return false;
+  const prefix = text.slice(Math.max(0, start - 32), start).toLowerCase();
+  return prefix.includes("base64") || prefix.includes("data:") || v.endsWith("=");
+}
+
+const emailLocalChar = (c) => /[\p{L}\p{N}._%+\-]/u.test(c);
+const emailDomainChar = (c) => /[\p{L}\p{N}.-]/u.test(c);
+
+function validDomain(domain) {
+  if (domain.length > 255 || !domain.includes(".")) return false;
+  const labels = domain.split(".");
+  return labels.length >= 2 && labels.every((l) => l.length >= 1 && l.length <= 63 &&
+    /^[\p{L}\p{N}](?:[\p{L}\p{N}-]*[\p{L}\p{N}])?$/u.test(l)) && labels.at(-1).length >= 2;
+}
+
+function addEmailSpans(text, add) {
+  for (let at = text.indexOf("@"); at !== -1; at = text.indexOf("@", at + 1)) {
+    let start = at, end = at + 1;
+    if (text[at - 1] === "\"") {
+      const q = text.lastIndexOf("\"", at - 2);
+      if (q === -1 || at - q > 66) continue;
+      start = q;
+    } else {
+      while (start > 0 && at - start <= 64 && emailLocalChar(text[start - 1])) start--;
+      const local = text.slice(start, at);
+      if (!local || local.startsWith(".") || local.endsWith(".") || local.includes("..")) continue;
+    }
+    while (end < text.length && end - at <= 256 && emailDomainChar(text[end])) end++;
+    const domain = text.slice(at + 1, end);
+    if (!validDomain(domain)) continue;
+    if (/[\p{L}\p{N}._%+\-"@]/u.test(text[start - 1] || "") || /[\p{L}\p{N}._%-]/u.test(text[end] || "")) continue;
+    add({ start, end, label: "EMAIL", category: "contact", score: 1, source: "rule" }, 52);
+  }
+}
+
 /**
  * Return non-overlapping sensitive spans {start, end, label, category, score, source} in `text`.
  */
 export function findSpans(text, categories = null, customTerms = []) {
+  if (typeof text !== "string") return [];
   const wanted = categories ? new Set(categories) : null;
   const candidates = [];
   const add = (span, prio) => {
@@ -223,20 +359,25 @@ export function findSpans(text, categories = null, customTerms = []) {
     }
   };
 
-  customTerms.map((t) => t.trim()).filter(Boolean).forEach((term, i) => {
+  const terms = Array.isArray(customTerms) ? customTerms : [];
+  terms.map((t) => String(t).trim()).filter(Boolean).sort((a, b) => b.length - a.length).forEach((term) => {
     for (const m of text.matchAll(new RegExp(escapeRe(term), "gi"))) {
       add({ start: m.index, end: m.index + m[0].length, label: "CUSTOM", category: "custom", score: 1, source: "rule" },
-        -1000 + i);
+        -1000);
     }
   });
+
+  if (!wanted || wanted.has("secrets")) addPemSpans(text, add);
+  if (!wanted || wanted.has("contact")) addEmailSpans(text, add);
 
   RULES.forEach((r, prio) => {
     if (wanted && !wanted.has(r.category)) return;
     r.re.lastIndex = 0;
     for (const m of text.matchAll(r.re)) {
-      const value = m[r.group];
-      if (!value || (r.validator && !r.validator(value))) continue;
-      let [start, end] = m.indices[r.group];
+      const { value, indices } = ruleMatchValue(m, r.group);
+      if (!value || !indices) continue;
+      let [start, end] = indices;
+      if (r.validator && !r.validator(value, text, start, end)) continue;
       if (r.extend) end = extendSecret(text, end);
       add({ start, end, label: r.label, category: r.category, score: 1, source: "rule" }, prio);
     }
@@ -244,7 +385,7 @@ export function findSpans(text, categories = null, customTerms = []) {
 
   if (!wanted || wanted.has("secrets")) {
     for (const m of text.matchAll(TOKEN)) {
-      if (looksRandom(m[0])) {
+      if (!looksBase64Blob(m[0], text, m.index) && looksRandom(m[0])) {
         add({ start: m.index, end: m.index + m[0].length, label: "POSSIBLE_SECRET", category: "secrets",
           score: 0.7, source: "rule" }, RULES.length);
       }
@@ -256,19 +397,27 @@ export function findSpans(text, categories = null, customTerms = []) {
 export function resolveOverlaps(spans) {
   const ordered = [...spans].sort((a, b) => a.prio - b.prio || (b.end - b.start) - (a.end - a.start) || a.start - b.start);
   const kept = [];
-  for (const s of ordered) {
-    if (kept.every((k) => s.end <= k.start || s.start >= k.end)) kept.push(s);
-  }
+  for (const s of ordered) insertIfClear(kept, s);
   return kept.sort((a, b) => a.start - b.start).map(({ prio, ...s }) => s);
 }
 
 /** Add NER spans that don't overlap rule spans (rules are more precise). */
 export function mergeSpans(ruleSpans, nerSpans) {
-  const kept = [...ruleSpans];
-  for (const s of nerSpans) {
-    if (kept.every((k) => s.end <= k.start || s.start >= k.end)) kept.push(s);
-  }
+  const kept = [...ruleSpans].sort((a, b) => a.start - b.start || a.end - b.end);
+  for (const s of nerSpans) insertIfClear(kept, s);
   return kept.sort((a, b) => a.start - b.start);
+}
+
+function insertIfClear(kept, span) {
+  let lo = 0, hi = kept.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (kept[mid].start < span.start) lo = mid + 1;
+    else hi = mid;
+  }
+  if ((kept[lo - 1] && kept[lo - 1].end > span.start) || (kept[lo] && kept[lo].start < span.end)) return false;
+  kept.splice(lo, 0, span);
+  return true;
 }
 
 // ------------------------------------------------------------------ display

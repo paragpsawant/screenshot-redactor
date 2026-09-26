@@ -14,9 +14,11 @@ ort.env.wasm.wasmPaths = WASM_PATH;
 ort.env.wasm.numThreads = 1;
 
 const post = (msg) => self.postMessage(msg);
+const MODEL_CACHE = "screenshot-redactor-models-v1";
 
 async function fetchBytes(path, label) {
-  const res = await fetch(new URL(path, BASE));
+  const url = new URL(path, BASE);
+  const res = await cachedFetch(url);
   if (!res.ok) throw new Error(`Could not load ${path} (${res.status})`);
   const total = Number(res.headers.get("content-length")) || 0;
   if (!res.body || !total) return new Uint8Array(await res.arrayBuffer());
@@ -41,7 +43,11 @@ let ner = null;
 
 function loadCore() {
   core ??= Promise.all([OCR.create(ort, loadBytes, loadJson), FaceDetector.create(ort, loadBytes)])
-    .then(([ocr, faces]) => ({ ocr, faces }));
+    .then(([ocr, faces]) => ({ ocr, faces }))
+    .catch((err) => {
+      core = null;
+      throw err;
+    });
   return core;
 }
 
@@ -52,8 +58,21 @@ function loadNer() {
       // A path, not a full URL: transformers.js only checks local files for non-http(s) paths.
       localModelPath: new URL("models/", BASE).pathname, wasmPaths: WASM_PATH, device: "wasm",
     });
+  }).catch((err) => {
+    ner = null;
+    throw err;
   });
   return ner;
+}
+
+async function cachedFetch(url) {
+  if (!self.caches) return fetch(url);
+  const cache = await caches.open(MODEL_CACHE);
+  const cached = await cache.match(url.href);
+  if (cached) return cached;
+  const res = await fetch(url);
+  if (res.ok) await cache.put(url.href, res.clone()).catch(() => {});
+  return res;
 }
 
 self.onmessage = async ({ data: msg }) => {
@@ -81,6 +100,6 @@ self.onmessage = async ({ data: msg }) => {
         lines: result.lines.length });
     }
   } catch (err) {
-    post({ type: "error", id: msg.id, text: err?.message || String(err) });
+    post({ type: "error", id: msg.id, phase: msg.type, text: err?.message || String(err) });
   }
 };
