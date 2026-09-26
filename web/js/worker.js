@@ -42,7 +42,8 @@ let core = null;
 let ner = null;
 
 function loadCore() {
-  core ??= Promise.all([OCR.create(ort, loadBytes, loadJson), FaceDetector.create(ort, loadBytes)])
+  core ??= withTimeout(Promise.all([OCR.create(ort, loadBytes, loadJson), FaceDetector.create(ort, loadBytes)]), 25000,
+    "Core model loading")
     .then(([ocr, faces]) => ({ ocr, faces }))
     .catch((err) => {
       core = null;
@@ -63,6 +64,14 @@ function loadNer() {
     throw err;
   });
   return ner;
+}
+
+function withTimeout(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out. Check your connection and retry.`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 async function cachedFetch(url) {
