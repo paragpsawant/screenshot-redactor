@@ -396,28 +396,58 @@ export function findSpans(text, categories = null, customTerms = []) {
 
 export function resolveOverlaps(spans) {
   const ordered = [...spans].sort((a, b) => a.prio - b.prio || (b.end - b.start) - (a.end - a.start) || a.start - b.start);
-  const kept = [];
-  for (const s of ordered) insertIfClear(kept, s);
-  return kept.sort((a, b) => a.start - b.start).map(({ prio, ...s }) => s);
+  const kept = new SpanSet();
+  for (const s of ordered) kept.insertIfClear(s);
+  return kept.toArray().map(({ prio, ...s }) => s);
 }
 
 /** Add NER spans that don't overlap rule spans (rules are more precise). */
 export function mergeSpans(ruleSpans, nerSpans) {
-  const kept = [...ruleSpans].sort((a, b) => a.start - b.start || a.end - b.end);
-  for (const s of nerSpans) insertIfClear(kept, s);
-  return kept.sort((a, b) => a.start - b.start);
+  const kept = new SpanSet([...ruleSpans].sort((a, b) => a.start - b.start || a.end - b.end));
+  for (const s of nerSpans) kept.insertIfClear(s);
+  return kept.toArray();
 }
 
-function insertIfClear(kept, span) {
-  let lo = 0, hi = kept.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (kept[mid].start < span.start) lo = mid + 1;
-    else hi = mid;
+// Non-overlapping spans kept sorted by start in fixed-size blocks, so an insert shifts at most one block
+// (O(sqrt n)) instead of the whole array — a single sorted array with splice() is O(n^2) for large logs.
+const BLOCK = 256;
+class SpanSet {
+  constructor(sorted = []) {
+    this.blocks = [];
+    for (let i = 0; i < sorted.length; i += BLOCK) this.blocks.push(sorted.slice(i, i + BLOCK));
   }
-  if ((kept[lo - 1] && kept[lo - 1].end > span.start) || (kept[lo] && kept[lo].start < span.end)) return false;
-  kept.splice(lo, 0, span);
-  return true;
+  locate(start) {
+    const B = this.blocks;
+    let lo = 0, hi = B.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (B[mid][0].start < start) lo = mid + 1;
+      else hi = mid;
+    }
+    const b = Math.max(0, lo - 1), blk = B[b];
+    let l = 0, h = blk.length;
+    while (l < h) {
+      const m = (l + h) >> 1;
+      if (blk[m].start < start) l = m + 1;
+      else h = m;
+    }
+    return [b, l];
+  }
+  insertIfClear(span) {
+    if (!this.blocks.length) { this.blocks.push([span]); return true; }
+    const [b, i] = this.locate(span.start);
+    const blk = this.blocks[b];
+    const prev = i > 0 ? blk[i - 1] : b > 0 ? this.blocks[b - 1].at(-1) : null;
+    const next = i < blk.length ? blk[i] : this.blocks[b + 1]?.[0] ?? null;
+    // kept spans never overlap and are sorted by start, so they are sorted by end too: neighbours suffice
+    if ((prev && prev.end > span.start) || (next && next.start < span.end)) return false;
+    blk.splice(i, 0, span);
+    if (blk.length > 2 * BLOCK) this.blocks.splice(b + 1, 0, blk.splice(BLOCK));
+    return true;
+  }
+  toArray() {
+    return this.blocks.flat();
+  }
 }
 
 // ------------------------------------------------------------------ display

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { findSpans, ibanOk, ipv6Ok, looksRandom, luhnOk, maskPreview, prettyLabel } from "../js/rules.js";
+import { findSpans, ibanOk, ipv6Ok, looksRandom, luhnOk, maskPreview, mergeSpans, prettyLabel } from "../js/rules.js";
 
 const labels = (text, ...args) => findSpans(text, ...args).map((s) => [s.label, text.slice(s.start, s.end)]);
 const awsKey = "AKIA" + "IOSFODNN7EXAMPLE";
@@ -110,6 +110,17 @@ test("display helpers", () => {
 
 test("phone match stops before OCR newline spillover", () => {
   assert.ok(labels("Call +1 (415) 555-0132\n14 now").some(([l, v]) => l === "PHONE" && v === "+1 (415) 555-0132"));
+});
+
+test("mergeSpans scales near-linearly for many spans", () => {
+  const n = 12000;
+  const rules = Array.from({ length: n }, (_, i) => ({ start: i * 4, end: i * 4 + 1, label: "R", category: "secrets" }));
+  const ner = Array.from({ length: n }, (_, i) => ({ start: i * 4 + 2, end: i * 4 + 3, label: "N", category: "person" }));
+  const t0 = performance.now();
+  const merged = mergeSpans(rules, ner);
+  const elapsed = performance.now() - t0;
+  assert.equal(merged.length, n * 2);
+  assert.ok(elapsed < 1000, `merge took ${elapsed.toFixed(1)}ms`);
 });
 
 // ---- regressions from a real chat screenshot (Teams): passwords with spaces, chat headers ----

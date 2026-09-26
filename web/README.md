@@ -83,7 +83,7 @@ Each character's position comes from the OCR model's CTC timesteps, so only the 
 `OPENAI_API_KEY=` stays readable, the key does not.
 
 The browser app keeps local `web/js/` engine copies because `scripts/vendor.mjs` only vendors runtime
-libraries and models; the rule/pipeline copies are synced from `cleanroom-core` v0.1.4, with
+libraries and models; the rule/pipeline copies are synced from `cleanroom-core` v0.1.5, with
 screenshot-specific OCR tiling and rotated-text handling layered in this app.
 
 > ⚠️ Blur and pixelation can sometimes be reversed for text. Use **black box** for anything secret.
