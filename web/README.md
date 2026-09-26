@@ -89,11 +89,30 @@ Each character's position comes from the OCR model's CTC timesteps, so only the 
 - Only text the OCR can read is found automatically: tiny, blurry or stylised text can be missed. Review, and drag boxes over anything left.
 - Name/address detection is an AI model; untick false positives. It is tuned for English.
 
+<!-- cleanroom-ai:family:start -->
+## Part of cleanroom-ai
+
+**Clean it before you share it.** Six free privacy tools built on one shared engine. Every model runs
+in your browser, so nothing you open is ever uploaded.
+
+| | Tool | Cleans | Demo | Code |
+|---|---|---|---|---|
+| 🕶️ | **Screenshot Redactor** 📍 *you are here* | API keys, passwords, emails, card numbers, names, faces & QR codes in screenshots | [▶ Try it](https://huggingface.co/spaces/cleanroom-ai/pii-privacy-redaction) | [GitHub](https://github.com/cleanroom-ai/screenshot-redactor) |
+| 🧽 | **Log Scrubber** | tokens, cookies, passwords & PII in logs, `.env`, JSON and HAR files | [▶ Try it](https://huggingface.co/spaces/cleanroom-ai/log-secret-scrubber) | [GitHub](https://github.com/cleanroom-ai/log-secret-scrubber) |
+| 📄 | **PDF Redactor** | PII & secrets in PDFs, flattened and verified so no text survives | [▶ Try it](https://huggingface.co/spaces/cleanroom-ai/pdf-redaction) | [GitHub](https://github.com/cleanroom-ai/pdf-redaction) |
+| 🔊 | **Audio Redactor** | bleeps names, phone & card numbers and secrets in recordings | [▶ Try it](https://huggingface.co/spaces/cleanroom-ai/audio-pii-redaction) | [GitHub](https://github.com/cleanroom-ai/audio-pii-redaction) |
+| 📷 | **Photo Share-Safe** | GPS & hidden EXIF metadata; blurs faces and license plates | [▶ Try it](https://huggingface.co/spaces/cleanroom-ai/photo-exif-privacy) | [GitHub](https://github.com/cleanroom-ai/photo-exif-privacy) |
+| 🎬 | **Video Redactor** | keys, names, emails & faces tracked through screen recordings | [▶ Try it](https://huggingface.co/spaces/cleanroom-ai/video-redaction) | [GitHub](https://github.com/cleanroom-ai/video-redaction) |
+| ⚙️ | **@cleanroom-ai/core** | the shared on-device engine: OCR, secret/PII rules, NER, face detection | — | [GitHub](https://github.com/cleanroom-ai/cleanroom-core) |
+
+All tools: [Hugging Face](https://huggingface.co/cleanroom-ai) · [GitHub](https://github.com/cleanroom-ai)
+<!-- cleanroom-ai:family:end -->
+
 ## Credits & licenses
 
 Built by **Parag Sawant** ([@paragpsawant](https://github.com/paragpsawant) ·
 [parags.dev](https://parags.dev)). Source code, CI and issues are on
-**[GitHub: paragpsawant/screenshot-redactor](https://github.com/paragpsawant/screenshot-redactor)**.
+**[GitHub: cleanroom-ai/screenshot-redactor](https://github.com/cleanroom-ai/screenshot-redactor)**.
 
 PP-OCRv6 via RapidOCR (Apache-2.0) · YuNet (MIT) · bert-small-pii-detection (Apache-2.0) ·
 ONNX Runtime Web (MIT) · transformers.js (Apache-2.0) · jsQR (Apache-2.0). License texts are in
