@@ -5,7 +5,7 @@ colorFrom: gray
 colorTo: indigo
 sdk: static
 app_file: index.html
-pinned: false
+pinned: true
 license: apache-2.0
 short_description: Redact API keys, PII & faces in screenshots, in-browser
 thumbnail: https://huggingface.co/spaces/cleanroom-ai/pii-privacy-redaction/resolve/main/assets/social-preview.png
